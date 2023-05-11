@@ -1,0 +1,36 @@
+# Output
+Output method allows you to define the expected structure of the data returned by your LLM function.
+
+
+## Usage
+
+To define the output schema, you can pass a Zod schema as an argument to the output function. Zod is a TypeScript-first schema validation library that provides a convenient way to define and validate data schemas. It offers various schema types and validators to specify the expected structure of your data.
+
+Here's an example of passing a Zod schema to the output function:
+
+```typescript
+import { z } from "zod";
+
+const outputSchema = z.object({
+  countryNames: z.array(z.string()),
+});
+
+// Pass the output schema to the output function
+const generateCountryNames = createAiFunction
+  .output(outputSchema)
+  .create()
+```
+
+In the above example, we define an output schema using `z.object()` to specify an object with a single property named `countryNames`, which is an array of strings.
+
+The type signature of your LLM function is based on this zod schame as shown below;
+```typescript {countryNames/#1}
+const generateCountryNames: () => Promise<{
+  countryNames: string[];
+}>;
+```
+This allows you to query an LLM and return a data structure that conforms to the types already defined in your existing codebase.
+
+## Validation of Response with Zod Schema
+
+**llm-functions-ts** ensures that the response from the LLM function adheres to the specified output schema. When a response is received, it is validated against the output schema using the Zod library. If the response fails the validation, indicating that it doesn't match the expected structure, llm-functions-ts will loop back the response and the validation error to the LLM to obtain a new response that conforms to the defined schema.

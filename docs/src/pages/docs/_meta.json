@@ -1,0 +1,17 @@
+{
+  "index": {
+    "title": "Introduction"
+  },
+  "getting-started": {
+    "title": "Getting started"
+  },
+  "core-concepts": {
+    "title": "Core concepts"
+  },
+  "llm-concepts": {
+    "title": "LLM concepts"
+  },
+  "recipes": {
+    "title": "Recipes"
+  }
+}

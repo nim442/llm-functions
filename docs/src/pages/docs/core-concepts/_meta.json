@@ -1,0 +1,27 @@
+{
+
+  "output": {
+    "title": "Output"
+  },
+  "querying-documents": {
+    "title": "Querying documents"
+  },
+  "datasets": {
+    "title": "Datasets"
+  },
+  "trace": {
+    "title": "Trace"
+  },
+  "composing": {
+    "title": "Composing multiple functions"
+  },
+  "evaluation": {
+    "title": "Evaluating functions"
+  },
+  "analytics": {
+    "title": "Analytics"
+  },
+  "human-in-the-loop": {
+    "title": "Human in the loop"
+  }
+}

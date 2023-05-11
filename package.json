@@ -1,0 +1,28 @@
+{
+  "name": "llm-functions-ts-turbo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "clean": "turbo run clean && git clean -xdf node_modules",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint --filter=./packages/* && manypkg check",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "typecheck": "turbo run typecheck"
+  },
+  "workspaces": [
+    "packages/*",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "@types/node": "18.16.0",
+    "dotenv": "latest",
+    "prettier": "latest",
+    "turbo": "^1.9.3",
+    "typescript": "5.1.0-beta"
+  }
+}

@@ -1,0 +1,58 @@
+## Installation
+
+To install llm-functions-ts, you can use npm or yarn:
+
+```shell
+npm install llm-functions-ts
+```
+
+or
+
+```shell
+yarn add llm-functions-ts
+```
+
+## Defining an LLM Function
+
+Let's create a quick LLM function that will allow us to generate a list of countries that start with a given letter.
+We want this function to take a letter as input and return a list of countries that start with that letter.
+
+```typescript
+import { createAiFunction } from "llm-functions-ts";
+const generateCountryNames = createAIFn()
+  .name("A function that generates country names")
+  .instructions("Generate countries names that start with the letter {letter}.")
+  .output(z.object({ countryNames: z.array(z.string()) }))
+  .create();
+```
+
+The `generateCountryNames` has the following type signature
+
+```typescript
+const generateCountryNames: (args: {
+  input: {
+    letter: string;
+  };
+}) => Promise<{
+  countryNames: string[];
+}>;
+```
+
+Notice that the function takes a variable named letter. This variable is automatically inferred from the {} instructions. 
+WHen the function is executed, the instruction will be interpolated with this variable.
+The output of the functon is inferred from the zod schema passed to the output method of our LLM function.
+
+Let's use this function!
+```typescript
+const result = await generateCountryNames({ input: { letter: "A" } });
+// result.countryNames = ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan"]
+```
+Since this is just a typescript function that outputs a structured data, we can use it anywhere we want.
+
+## Trace UI
+The function above automatically generates a playground UI that allows you to test the function.
+
+![Trace UI](/images/trace.png)
+
+The UI can be used as a playground to test your functions.
+
