@@ -3,7 +3,6 @@ import { createAIFn } from "llm-functions-ts";
 
 export const askInvoiceOrQuotesQuestion = createAIFn()
   .output(z.object({ question: z.string().nullable() }))
-  // .document({ name: "invoice.pdf", type: "pdf" })
   .instructions(
     `Answer the following question based on the above invoice.csv.
 {question}`
@@ -13,7 +12,7 @@ export const askInvoiceOrQuotesQuestion = createAIFn()
 export const invoiceFromPdf = createAIFn()
   .name("Invoice from PDF")
   .description("Takes an invoice and returns the line items")
-  .document({ type: "pdf", name: "pdf" })
+  .document({ type: "pdf" })
   .output(
     z.object({
       subtotal: z.number().nullable(),
@@ -391,7 +390,7 @@ OUTPUT: {{
 }}
 `
   )
-  .document({ type: "url", name: "url", chunkingQuery: "Contact info" })
+  .document({ type: "url", chunkingQuery: "Contact info" })
   .dataset([
     {
       documents: ["https://avecplaisirs.com"],

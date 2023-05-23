@@ -10,18 +10,23 @@
   },
 
   "datasets": {
-    "title": "Datasets"
+    "title": "Datasets",
+    "display": "hidden"
   },
   "trace": {
-    "title": "Trace"
+    "title": "Trace",
+    "display": "hidden"
   },
   "evaluation": {
-    "title": "Evaluating functions"
+    "title": "Evaluating functions",
+    "display": "hidden"
   },
   "analytics": {
-    "title": "Analytics"
+    "title": "Analytics",
+    "display": "hidden"
   },
   "human-in-the-loop": {
-    "title": "Human in the loop"
+    "title": "Human in the loop",
+    "display": "hidden"
   }
 }

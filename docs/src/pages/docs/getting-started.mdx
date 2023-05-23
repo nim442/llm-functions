@@ -19,6 +19,8 @@ We want this function to take a letter as input and return a list of countries t
 
 ```typescript
 import { createAiFunction } from "llm-functions-ts";
+import * as z from "zod";
+
 const generateCountryNames = createAIFn()
   .name("A function that generates country names")
   .instructions("Generate countries names that start with the letter {letter}.")
@@ -52,7 +54,7 @@ Since this is just a typescript function that outputs a structured data, we can 
 ## Trace UI
 The function above automatically generates a playground UI that allows you to test the function.
 
-![Trace UI](images/g-s-02.png)
+![image](/images/g-s-01.png)
 
 The UI can be used as a playground to test your functions.
 

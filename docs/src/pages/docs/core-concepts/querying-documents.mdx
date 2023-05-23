@@ -66,19 +66,41 @@ the function will automatically convert the pdf to text or even fetch the pdf fr
 This function will generate this UI
 ![invoiceFromPdf](/images/querying-documents-01.png)
 
+## Large documents
+
+LLMs have a limited context length. This means that you can only pass a limited amount of data to each call.
+This is a problem if you want to give LLM a large document. It simply cannot fit in the context.
+The solution is to split the document up into small chunks and only send the relvant chunk to the LLM.
+llm-functions-ts automatically takes care of chunking and choosing the relevant chunk to include in the LLM call.
+
+To understand how this works in detail, take a look at the [embeddings page](/docs/llm-concepts/embeddings).
+
+Here's a quick overview on how llm-concepts-ts handles large documents:
+1. The document is split into chunks and each chunk is embedded into a vector
+2. When the LLM is called, we get the embedding of the user query
+3. We find the chunk that is semantically the closest to the user query
+4. This chunk is passed to the LLM call
+
+llm-functions-ts tries it best to find the best chunk to pass to the LLM.
+In cases you want to specify exactly how to find the chunk, `.document` takes an additional argument `chunkingQuery`.
+Check out the [Scraping contact information](/docs/recipes/getting-contact) recepie as an example.
+
 ## Types of Documents
 
 ### PDF
+
 ```typescript
-.document({ type: "pdf", name: "invoice.pdf" })
+.document({ type: "pdf" })
 ```
 
 ### URL
+
 ```typescript
 .document({ type: "url" })
 ```
 
 ### Text
+
 ```typescript
 .document({ type: "text" })
 ```

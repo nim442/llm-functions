@@ -56,11 +56,10 @@ export interface ProcedureParams<
    */
   _query?: Query;
 }
-export type Document = { name: string } & (
+export type Document =
   | { type: 'pdf'; input: Buffer }
   | { type: 'text'; input: string }
-  | { type: 'url'; input: string; chunkingQuery?: string }
-);
+  | { type: 'url'; input: string; chunkingQuery?: string };
 
 export type DocumentWithoutInput = DOmit<Document, 'input'>;
 
@@ -611,7 +610,7 @@ ${userPrompt}
     },
     withModelParams: ({ temperature }) => {
       if (temperature) {
-        model.identifyingParams
+        model.identifyingParams;
         model.temperature = temperature;
       }
 

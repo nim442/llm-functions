@@ -43,15 +43,30 @@ export const Feature = ({ name, icon }) => (
 Just declare your function and llm-functions-ts takes care of the rest.\
 
 ```typescript
+import { createAIFn } from "llm-functions-ts";
+import * as z from "zod";
+
 const const generateCountryNames = createAIFn()
   .instructions("Generate countries names that start with {letter}")
   .output(z.object({ countryNames: z.array(z.string()) }))
   .create();
 
-const result = await generateCountryNames({ input: { letter: "A" } });
+// (args: { instructions: {letter: string} }) => Promise<{ countryNames: string[] }>
+const result = await generateCountryNames({ instructions: { letter: "A" } });
 // result.countryNames = ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan"]
 ```
-Since the generated functions are simple typescript functions, you can use them anywhere in your existing typescript projects.
+
+Since the generated functions are simple typescript functions, you can use them anywhere in your existing typescript projects. A UI is automatically generated that allows you to test this function
+![image](/images/g-s-01.png)
+
+## Motivation
+
+There are a lot of other libraries out there that help developers write LLM chains.
+However, a lot of them are in Python and require a lot of boilerplate code to get started or they are not fully typesafe.
+The goal of llm-functions-ts is to provide sane defaults that make it extremely easy to integrate LLM's in your existting typescript projects.
+We take typesafety very seriously. For example, changing a variable in the prompt results in a typescript error.
+Another challenge is that testing LLM chains is hard. **llm-functions-ts** comes with a UI that allows you to trace, evaluate and debug your functions.
+The UI is automatically generated so all you have to worry about is writing your function. Think storybook for LLM's.
 
 ## Features
 
