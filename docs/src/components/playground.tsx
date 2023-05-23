@@ -10,15 +10,10 @@ const Playground: React.FC = () => {
   useEffect(() => {
     setTheme("light");
   }, [setTheme]);
-  
+
   return (
     <main className="flex h-screen bg-white">
-      <Main
-        // evaluateFn={() => {
-        //   return Promise.resolve(exampleResponse);
-        // }}
-        aiFunctions={examples.map((e) => assertAiFn(e).__internal_def)}
-      />
+      <Main aiFunctions={examples.map((e) => assertAiFn(e).__internal_def)} />
     </main>
   );
 };

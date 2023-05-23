@@ -28,7 +28,6 @@ import SyntaxHighlighter from 'react-syntax-highlighter';
 import { vs2015 as theme } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 import { FormField, Input } from './FormField';
-import { exampleResponses } from './exampleResponse';
 
 export type Props = {
   aiFunction: ProcedureBuilderDef;
