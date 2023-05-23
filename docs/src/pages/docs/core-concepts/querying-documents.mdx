@@ -1,1 +1,84 @@
-Coming soon
+# Querying Documents
+
+You can attach various documents to your function by using the `.document` method
+
+## Syntax
+
+The basic syntax for querying documents in llm-functions-ts is as follows:
+Let's say you want to create a function that takes an invoice as pdf and returns the line items:
+
+```typescript {4}
+export const invoiceFromPdf = createAIFn()
+  .name("Invoice from PDF")
+  .description("Takes an invoice and returns the line items")
+  .document({ type: "pdf", name: "invoice.pdf" })
+  .output(
+    z.object({
+      subtotal: z.number().nullable(),
+      taxes: z.array(
+        z.object({ name: z.string().nullable(), amount: z.number().nullable() })
+      ),
+      total: z.number().nullable(),
+      lineItems: z.array(
+        z.object({
+          description: z.string().nullable(),
+          date: z.string().nullable(),
+          activity: z.string().nullable(),
+          item_amount: z.number().nullable(),
+          item_amount_total: z.number().nullable(),
+          quantity: z.number().default(1).nullable(),
+          tax: z
+            .string()
+            .nullable()
+            .describe(
+              "Name of the tax. Can be GST/HST, Nola tax etc. It is not the tax amount"
+            ),
+        })
+      ),
+    })
+  )
+  .create();
+```
+
+The `invoiceFromPdf` has the following type signature
+
+```typescript
+const invoiceFromPdf: (args: {
+    documents: [Buffer | string];
+}) => Promise<{
+    subtotal: number | null;
+    taxes: {
+        name: string | null;
+        amount: number | null;
+    }[];
+    total: number | null;
+    lineItems: {
+        date: string | null;
+        description: string | null;
+        ... 4 more ...;
+        tax: string | null;
+    }[];
+}>
+```
+
+A PDF can be passed to the function as a buffer or a url string. Internally,
+the function will automatically convert the pdf to text or even fetch the pdf from the url if a url is provided.
+This function will generate this UI
+![invoiceFromPdf](/images/querying-documents-01.png)
+
+## Types of Documents
+
+### PDF
+```typescript
+.document({ type: "pdf", name: "invoice.pdf" })
+```
+
+### URL
+```typescript
+.document({ type: "url" })
+```
+
+### Text
+```typescript
+.document({ type: "text" })
+```

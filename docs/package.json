@@ -10,7 +10,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "llm-functions-ts": "*",
     "@heroicons/react": "^2.0.18",
     "@types/node": "20.2.1",
     "@types/react": "18.2.6",
@@ -19,6 +18,7 @@
     "cheerio": "^1.0.0-rc.12",
     "eslint": "8.40.0",
     "eslint-config-next": "13.4.2",
+    "llm-functions-ts": "^0.0.1",
     "next": "13.4.2",
     "nextra": "^2.5.2",
     "nextra-theme-docs": "^2.5.2",

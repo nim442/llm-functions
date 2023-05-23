@@ -1,19 +1,19 @@
 {
-
   "output": {
     "title": "Output"
   },
   "querying-documents": {
     "title": "Querying documents"
   },
+  "sequencing": {
+    "title": "Sequencing functions togther"
+  },
+
   "datasets": {
     "title": "Datasets"
   },
   "trace": {
     "title": "Trace"
-  },
-  "composing": {
-    "title": "Composing multiple functions"
   },
   "evaluation": {
     "title": "Evaluating functions"

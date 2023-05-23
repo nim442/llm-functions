@@ -30,7 +30,7 @@ The `generateCountryNames` has the following type signature
 
 ```typescript
 const generateCountryNames: (args: {
-  input: {
+  instructions: {
     letter: string;
   };
 }) => Promise<{
@@ -44,7 +44,7 @@ The output of the functon is inferred from the zod schema passed to the output m
 
 Let's use this function!
 ```typescript
-const result = await generateCountryNames({ input: { letter: "A" } });
+const result = await generateCountryNames({ instructions: { letter: "A" } });
 // result.countryNames = ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan"]
 ```
 Since this is just a typescript function that outputs a structured data, we can use it anywhere we want.
@@ -52,7 +52,7 @@ Since this is just a typescript function that outputs a structured data, we can 
 ## Trace UI
 The function above automatically generates a playground UI that allows you to test the function.
 
-![Trace UI](/images/trace.png)
+![Trace UI](images/g-s-02.png)
 
 The UI can be used as a playground to test your functions.
 
