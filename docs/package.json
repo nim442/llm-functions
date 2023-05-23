@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "llm-functions-ts": "*",
     "@heroicons/react": "^2.0.18",
     "@types/node": "20.2.1",
     "@types/react": "18.2.6",
