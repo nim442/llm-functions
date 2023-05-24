@@ -172,7 +172,7 @@ export const Function: React.FC<Props> = ({
               />
             ))}
 
-            {aiFunction.query && (
+            {true && (
               <FormField
                 label="query"
                 control={
@@ -229,8 +229,8 @@ export const Function: React.FC<Props> = ({
           <div className="relative w-full group">
             <div
               className={classNames(
-                'absolute  w-full h-full top-0  rounded-full transition-all duration-300 blur-xl group-hover:opacity-70 opacity-0',
-                'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-gray-500 to-black z-0'
+                'absolute  w-full h-full top-0  rounded-full transition-all duration-300 blur-md group-hover:opacity-100 opacity-0',
+                'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-100 via-sky-300 to-sky-500'
               )}
             ></div>
             <button
@@ -241,8 +241,8 @@ export const Function: React.FC<Props> = ({
               }}
               className="button bg-white  text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative"
             >
-              <span className="flex relative justify-center items-center">
-                Evaluate dataset
+              <span className="flex relative justify-center items-center group-hover:text-sky-600 transition-all">
+                Evaluate
                 {loading && (
                   <ArrowPathIcon className="w-4 h-4 animate-spin absolute right-0" />
                 )}

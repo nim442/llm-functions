@@ -20,6 +20,8 @@ import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
 
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+import { OpenAIInput } from 'langchain/dist/types/openai-types';
+import { BaseLLMParams } from 'langchain/dist/llms/base';
 
 export type ParserZodEsque<TInput, TParsedInput> = {
   _input: TInput;
@@ -74,7 +76,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   description?: string;
   output?: Parser;
   tsOutputString?: string;
-  model?: OpenAI;
+  model?: Partial<Simplify<OpenAIInput & BaseLLMParams>>;
   documents?: DocumentWithoutInput[];
   query?: QueryFn<I, O>;
   instructions?: string;
@@ -203,7 +205,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   }>;
 
   withModelParams(
-    document: Partial<{ modelName: string; temperature: number }>
+    model: ProcedureBuilderDef['model']
   ): ProcedureBuilder<TParams>;
   instructions<T extends string>(
     arg0: T
@@ -247,22 +249,27 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
 }
 
 export const createAIFn = <TParams extends ProcedureParams>(
-  initDef: ProcedureBuilderDef = { executions: [] },
+  initDef?: ProcedureBuilderDef,
   onExecutionUpdate?: (execution: Execution<ProcedureParams['_output']>) => void
 ): ProcedureBuilder<TParams> => {
-  const model =
-    initDef.model ||
-    new OpenAI({
-      openAIApiKey:
-        process.env.OPENAI_API_KEY ||
-        localStorage.getItem('OPENAI_API_KEY') ||
-        undefined,
+  const def = {
+    model: {
       modelName: 'gpt-3.5-turbo',
       temperature: 0.2,
       topP: 0.1,
       maxTokens: -1,
-    });
-  const def: ProcedureBuilderDef = { ...initDef, model };
+    },
+    executions: [],
+    ...initDef,
+  };
+  const openAiModel = new OpenAI({
+    ...def.model,
+    openAIApiKey:
+      process.env.OPENAI_API_KEY ||
+      localStorage.getItem('OPENAI_API_KEY') ||
+      undefined,
+  });
+
   const getDocumentText = async (
     document: Document,
     executionId: string,
@@ -365,7 +372,7 @@ PROMPT:"""
       template: prompt,
       response: { type: 'loading' },
     });
-    const response = await model.call(prompt);
+    const response = await openAiModel.call(prompt);
     return { response, prompt, traceId };
   };
   const createExecution = (args: FunctionArgs) => {
@@ -574,7 +581,7 @@ ${userPrompt}
     });
 
     try {
-      const response = await model.call(zodTemplate);
+      const response = await openAiModel.call(zodTemplate);
 
       if (def.output) {
         return fixZodOutputRecursive(
@@ -612,13 +619,8 @@ ${userPrompt}
     instructions: (template) => {
       return createAIFn({ ...def, instructions: template });
     },
-    withModelParams: ({ temperature }) => {
-      if (temperature) {
-        model.identifyingParams;
-        model.temperature = temperature;
-      }
-
-      return createAIFn(def);
+    withModelParams: (model) => {
+      return createAIFn({ ...def, model: { ...def.model, ...model } });
     },
 
     output: (t) => {
