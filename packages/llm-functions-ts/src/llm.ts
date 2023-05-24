@@ -13,8 +13,6 @@ import { ExtractTemplateParams, interpolateFString } from './utils';
 
 import * as pdfjs from 'pdfjs-dist';
 
-// pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
-
 import _ from 'lodash';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
@@ -260,7 +258,9 @@ export const createAIFn = <TParams extends ProcedureParams>(
         localStorage.getItem('OPENAI_API_KEY') ||
         undefined,
       modelName: 'gpt-3.5-turbo',
-      temperature: 0,
+      temperature: 0.2,
+      topP: 0.1,
+      maxTokens: -1,
     });
   const def: ProcedureBuilderDef = { ...initDef, model };
   const getDocumentText = async (
@@ -274,6 +274,10 @@ export const createAIFn = <TParams extends ProcedureParams>(
           document.input as unknown as string,
           'base64'
         );
+        //Only add this on the browser
+        if (typeof window !== 'undefined') {
+          pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+        }
         const p = await pdfjs.getDocument(buffer).promise;
         const csv = await Promise.all(
           _.range(p.numPages).map(async (i) => {

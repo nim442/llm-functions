@@ -1,7 +1,7 @@
 import { assertAiFn } from "llm-functions-ts";
-import "llm-functions-ts/index.css";
+import "@llm-functions-ts/react/index.css";
 import { examples } from "./examples";
-import { Main } from "llm-functions-ts";
+import { Main } from "@llm-functions-ts/react";
 import { useTheme } from "nextra-theme-docs";
 import { useEffect } from "react";
 

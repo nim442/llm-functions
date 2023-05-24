@@ -21,6 +21,7 @@
     "llm-functions-ts": "^0.0.1",
     "next": "13.4.2",
     "nextra": "^2.5.2",
+    "@llm-functions-ts/react": "*",
     "nextra-theme-docs": "^2.5.2",
     "postcss": "8.4.23",
     "react": "18.2.0",
