@@ -26,7 +26,7 @@ import TraceComponent from './Trace';
 import classNames from 'classnames';
 import * as Tabs from '@radix-ui/react-tabs';
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import { vs2015 as theme } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { vs2015 as theme } from 'react-syntax-highlighter/dist/cjs/styles/hljs';
 
 import { FormField, Input } from './FormField';
 
