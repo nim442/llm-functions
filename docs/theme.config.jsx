@@ -4,6 +4,7 @@ export default {
   project: {
     link: "https://github.com/nim442/llm-ts",
   },
+  docsRepositoryBase:'https://github.com/nim442/llm-ts',
   footer: false,
   nextThemes: {
     defaultTheme: "dark",
