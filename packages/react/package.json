@@ -1,6 +1,6 @@
 {
   "name": "@llm-functions/react",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "MIT",
   "main": "dist/index.mjs",
   "typings": "dist/index.d.ts",
@@ -22,7 +22,8 @@
   },
   "peerDependencies": {
     "react": ">=16",
-    "react-dom": ">=16"
+    "react-dom": ">=16",
+    "llm-functions-ts": "*"
   },
   "prettier": {
     "printWidth": 80,
@@ -31,6 +32,9 @@
     "trailingComma": "es5"
   },
   "author": "nim442",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "require": "./dist/index.js",
@@ -75,7 +79,6 @@
     "hotscript": "^1.0.11",
     "langchain": "^0.0.76",
     "lodash": "^4.17.21",
-    "llm-functions-ts": "*",
     "nanoid": "^3.3.6",
     "pdfjs-dist": "^2.16.105",
     "postcss": "^8.4.23",
