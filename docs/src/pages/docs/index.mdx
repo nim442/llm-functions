@@ -43,10 +43,10 @@ export const Feature = ({ name, icon }) => (
 Just declare your function and llm-functions-ts takes care of the rest.\
 
 ```typescript
-import { createAIFn } from "llm-functions-ts";
+import { llmFunction } from "llm-functions-ts";
 import * as z from "zod";
 
-const const generateCountryNames = createAIFn()
+const const generateCountryNames = llmFunction
   .instructions("Generate countries names that start with {letter}")
   .output(z.object({ countryNames: z.array(z.string()) }))
   .create();

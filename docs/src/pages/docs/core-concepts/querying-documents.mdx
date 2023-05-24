@@ -8,7 +8,7 @@ The basic syntax for querying documents in llm-functions-ts is as follows:
 Let's say you want to create a function that takes an invoice as pdf and returns the line items:
 
 ```typescript {4}
-export const invoiceFromPdf = createAIFn()
+export const invoiceFromPdf = llmFunction
   .name("Invoice from PDF")
   .description("Takes an invoice and returns the line items")
   .document({ type: "pdf", name: "invoice.pdf" })

@@ -30,6 +30,7 @@ export function useQueryParams<T>(
       { skipNulls: true }
     );
     console.log(queryString);
+    //@ts-ignore
     window.history.replaceState(null, null, '?' + queryString);
 
     if (setter) {

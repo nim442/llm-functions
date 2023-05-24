@@ -10,9 +10,9 @@ import {
 import {
   FunctionArgs,
   ProcedureBuilderDef,
-  createAIFn,
   DocumentWithoutInput,
   Execution,
+  createFn,
 } from 'llm-functions-ts';
 import * as Form from '@radix-ui/react-form';
 import { parseFString } from 'llm-functions-ts';
@@ -66,7 +66,7 @@ export const Function: React.FC<Props> = ({
         const response = await evaluateDataset(id);
         setResponse(response);
       } else {
-        const fn = createAIFn(aiFunction);
+        const fn = createFn(aiFunction);
 
         const response = await fn.runDataset();
         setResponse(response);
@@ -75,7 +75,7 @@ export const Function: React.FC<Props> = ({
     } else {
       const response = await (evaluateFn
         ? evaluateFn(i, runtimeArgs).then((s) => s)
-        : createAIFn(aiFunction, (t) => {
+        : createFn(aiFunction, (t) => {
             setResponse((resp) => {
               const r = resp?.find((d) => d.id === t.id);
               if (r) {

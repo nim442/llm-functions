@@ -1,4 +1,4 @@
-export { parseFString } from './utils';
+export { parseFString, ParsedFStringNode } from './utils';
 
 export * from './llm';
 export * as jsonSchema from './jsonSchema';

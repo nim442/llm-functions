@@ -21,7 +21,7 @@ We want this function to take a letter as input and return a list of countries t
 import { createAiFunction } from "llm-functions-ts";
 import * as z from "zod";
 
-const generateCountryNames = createAIFn()
+const generateCountryNames = llmFunction
   .name("A function that generates country names")
   .instructions("Generate countries names that start with the letter {letter}.")
   .output(z.object({ countryNames: z.array(z.string()) }))

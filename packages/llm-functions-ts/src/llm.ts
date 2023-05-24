@@ -248,7 +248,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   runDataset(): Promise<Execution<TParams['_output']>[]>;
 }
 
-export const createAIFn = <TParams extends ProcedureParams>(
+export const createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
   onExecutionUpdate?: (execution: Execution<ProcedureParams['_output']>) => void
 ): ProcedureBuilder<TParams> => {
@@ -607,51 +607,51 @@ ${userPrompt}
   return {
     __internal: { def: def },
     name: (name: string) => {
-      return createAIFn({ ...def, name });
+      return createFn({ ...def, name });
     },
     description: (description: string) => {
-      return createAIFn({ ...def, description });
+      return createFn({ ...def, description });
     },
     dataset: (dataset) => {
-      return createAIFn({ ...def, dataset });
+      return createFn({ ...def, dataset });
     },
 
     instructions: (template) => {
-      return createAIFn({ ...def, instructions: template });
+      return createFn({ ...def, instructions: template });
     },
     withModelParams: (model) => {
-      return createAIFn({ ...def, model: { ...def.model, ...model } });
+      return createFn({ ...def, model: { ...def.model, ...model } });
     },
 
     output: (t) => {
       const tsOutputString = printNode(zodToTs(t).node);
-      return createAIFn({
+      return createFn({
         output: t,
         tsOutputString,
         ...def,
       });
     },
     map: (mapFn) => {
-      return createAIFn({
+      return createFn({
         ...def,
         mapFns: [...(def.mapFns || []), mapFn],
       }) as any;
     },
     sequence: (t) => {
       const aiFn = assertAiFn(t);
-      return createAIFn({
+      return createFn({
         ...def,
         sequences: [...(def.sequences || []), aiFn.__internal_def],
       }) as any;
     },
     document: (d) => {
-      return createAIFn({
+      return createFn({
         ...def,
         documents: [...(def.documents || []), d],
       });
     },
     query: (q) => {
-      return createAIFn({
+      return createFn({
         ...def,
         query: { queryInput: true, fn: q as any },
       });
@@ -659,7 +659,7 @@ ${userPrompt}
     create: () => {
       const sha = sha256(JSON.stringify(def));
       const fn = (arg: FunctionArgs) =>
-        createAIFn(def)
+        createFn(def)
           .run(arg as FunctionArgs)
           .then((r) => r.finalResponse);
       fn.__internal_def = { ...def, id: sha.toString() };
@@ -688,7 +688,7 @@ ${userPrompt}
             functionDef: aiFun,
             input: finalResponse,
           });
-          return createAIFn(aiFun)
+          return createFn(aiFun)
             .run(finalResponse)
             .then((r) => {
               return resolveExecution(id, r.finalResponse, r.trace);
@@ -711,3 +711,5 @@ export const assertAiFn = <T>(fn: T): AiFunction<T> => {
   }
   return fn as any;
 };
+
+export const llmFunction = createFn();

@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { createAIFn } from "llm-functions-ts";
+import { llmFunction } from "llm-functions-ts";
 
-export const askInvoiceOrQuotesQuestion = createAIFn()
+export const askInvoiceOrQuotesQuestion = llmFunction
   .output(z.object({ question: z.string().nullable() }))
   .instructions(
     `Answer the following question based on the above invoice.csv.
@@ -9,7 +9,7 @@ export const askInvoiceOrQuotesQuestion = createAIFn()
   )
   .create();
 
-export const invoiceFromPdf = createAIFn()
+export const invoiceFromPdf = llmFunction
   .name("Invoice from PDF")
   .description("Takes an invoice and returns the line items")
   .document({ type: "pdf" })
@@ -40,7 +40,7 @@ export const invoiceFromPdf = createAIFn()
   )
   .create();
 
-export const scrapeSite = createAIFn()
+export const scrapeSite = llmFunction
   .name("Get contact info from website")
   .instructions(
     `Follow these instructions to the dor get the contact info from the website. Let's work this out in a step by step way to be sure we have the right answer
@@ -87,7 +87,7 @@ OUTPUT: {{
   )
   .create();
 
-const getAnEmail = createAIFn()
+const getAnEmail = llmFunction
   .withModelParams({ temperature: 0.8 })
   .name("Get an email")
   .instructions("What's a random website of a caterer.")
@@ -96,7 +96,7 @@ const getAnEmail = createAIFn()
   .sequence(scrapeSite)
   .create();
 
-const generateCountryNames = createAIFn()
+const generateCountryNames = llmFunction
   .name("A function that generates country names")
   .instructions(
     "Generate countries names that start with {letter}.If the country doesn't exist, make some up"

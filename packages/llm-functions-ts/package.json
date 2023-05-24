@@ -18,6 +18,7 @@
     "build": "tsup",
     "test": "tsup test --passWithNoTests",
     "clean": "git clean -xdf dist node_modules",
+    "typecheck": "tsc --noEmit",
     "lint": ""
   },
   "peerDependencies": {
