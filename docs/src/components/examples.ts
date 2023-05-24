@@ -104,7 +104,47 @@ const generateCountryNames = llmFunction
   .output(z.object({ countryNames: z.array(z.string()) }))
   .create();
 
+const simple = llmFunction
+  .name("A very simple function")
+  .instructions("What kind of joke is this?\n{joke}")
+  .output(z.object({ joke: z.string() }))
+  .create();
+const simple3 = llmFunction
+  .withModelParams({ temperature: 0.8, topP: 0.4 })
+  .name("Band name generator")
+  .instructions(
+    `Generate band names for my new band based on the genre {genre}`
+  )
+  .output(
+    z.array(
+      z.object({
+        bandName: z.string(),
+        genre: z.enum(["rock", "pop", "rap"]),
+        albumName: z
+          .array(z.string())
+          .describe("Their top charting album names"),
+      })
+    )
+  )
+  .create();
+
+const simple4 = llmFunction
+  .name("Summarize site")
+  .document({ type: "url" })
+  .instructions(`Create an ad for this website. THe target demographic is pirates`)
+  .output(
+    z.array(
+      z.object({
+        adCopy: z.string(),
+      })
+    )
+  )
+  .create();
+
 export const examples = [
+  simple4,
+  simple,
+  simple3,
   generateCountryNames,
   getAnEmail,
   scrapeSite,

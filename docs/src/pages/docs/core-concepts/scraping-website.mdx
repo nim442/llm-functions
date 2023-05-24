@@ -1,0 +1,32 @@
+## Scraping website
+Simply pass `{type: 'url'}` to the `documents` functions. 
+
+```typescript
+const adGenerator = llmFunction
+  .name("Summarize site")
+  .document({ type: "url" })
+  .instructions(`Create an ad for this website. THe target demographic is pirates`)
+  .output(
+    z.array(
+      z.object({
+        adCopy: z.string(),
+      })
+    )
+  )
+  .create();
+```
+
+The result
+```typescript
+const ad = adGenerator({
+  documents: ["https://www.pirates.com"],
+});
+
+console.log(ad);
+// {
+//  adCopy :"Ahoy there, mateys! Are ye ready to plan the swashbuckling event of the year? Look no further than Planned, the event planning platform that will make yer wildest pirate dreams come true. From finding the best suppliers to planning the perfect venue, Planned has got ye covered. Set sail with Planned today!"
+//}
+```
+
+![image](/images/scrape.gif)
+

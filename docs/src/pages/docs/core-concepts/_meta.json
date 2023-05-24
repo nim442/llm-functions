@@ -5,10 +5,12 @@
   "querying-documents": {
     "title": "Querying documents"
   },
-  "sequencing": {
-    "title": "Sequencing functions togther"
+  "scraping-website": {
+    "title": "Scraping websites"
   },
-
+  "sequencing": {
+    "title": "Chaining"
+  },
   "datasets": {
     "title": "Datasets",
     "display": "hidden"

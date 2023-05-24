@@ -12,49 +12,212 @@ or
 yarn add llm-functions-ts
 ```
 
-## Defining an LLM Function
+## LLM Function
 
-Let's create a quick LLM function that will allow us to generate a list of countries that start with a given letter.
-We want this function to take a letter as input and return a list of countries that start with that letter.
+An LLM Function is composed of a few parts. Each part gives you additional functionality and more control over your output.
+To start, let's create a very simple function
 
 ```typescript
-import { createAiFunction } from "llm-functions-ts";
-import * as z from "zod";
-
-const generateCountryNames = llmFunction
-  .name("A function that generates country names")
-  .instructions("Generate countries names that start with the letter {letter}.")
-  .output(z.object({ countryNames: z.array(z.string()) }))
+import { llmFunction } from "llm-functions-ts";
+const simpleFunction = llmFunction
+  .name("A function that does nothing")
   .create();
 ```
 
-The `generateCountryNames` has the following type signature
+We created the simplest function there can be. The function signature is `() => Promise<string>`
+Let's call it to see what happens.
 
 ```typescript
-const generateCountryNames: (args: {
-  instructions: {
-    letter: string;
-  };
-}) => Promise<{
-  countryNames: string[];
-}>;
+import { llmFunction } from "llm-functions-ts";
+const functionResult = await simpleFunction();
+console.log(functionResult);
+// "There is no prompt provided. Please provide a prompt for me to generate output."
 ```
 
-Notice that the function takes a variable named letter. This variable is automatically inferred from the {} instructions. 
-WHen the function is executed, the instruction will be interpolated with this variable.
-The output of the functon is inferred from the zod schema passed to the output method of our LLM function.
+That's pretty useless. Let's add a prompt by using the `instructions` method.
 
-Let's use this function!
+```typescript {3}
+const bandNameGenerator = llmFunction
+  .name("Band name generator")
+  .instructions("Generate band names")
+  .create();
+```
+
+This tells GPT that we want it to generate band names.
+Let's call this function and see what happens!
+
 ```typescript
-const result = await generateCountryNames({ instructions: { letter: "A" } });
-// result.countryNames = ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan"]
+const bandNames = await bandNameGenerator();
 ```
-Since this is just a typescript function that outputs a structured data, we can use it anywhere we want.
 
-## Trace UI
-The function above automatically generates a playground UI that allows you to test the function.
+We get a string
 
-![image](/images/g-s-01.png)
+```
+1. Electric Stardust
+2. Midnight Mirage
+3. Cosmic Echoes
+4. Neon Serenade
+5. Velvet Thunder
+6. Solar Symphony
+7. Lunar Lullaby
+8. Radiant Rhapsody
+9. Sonic Oasis
+10. Dreamy Daze
+```
+
+That's pretty good! However, the result is a string. We want an array of strings so we can use it in our app.
+To do that, we can force GPT to output in a specific format using zod and the `output` method.
+
+```typescript {4}
+const bandNameGenerator = llmFunction
+  .name("Band name generator")
+  .instructions("Generate band names")
+  .output(z.array(z.string())
+  .create();
+```
+
+The function signature is `() => Promise<string[]>`. Let's call this function and see what happens!
+We get
+
+```typescript
+[
+  "Electric Dreams",
+  "Neon Nights",
+  "Cosmic Echoes",
+  "Galactic Groove",
+  "Starlight Serenade",
+];
+```
+
+Much better! We can now map over the array and render it in a UI however we like.
+
+Now, ;et's try something more complicated. Let's add a genre name to each of these band names.
+
+```typescript {8}
+const bandNameGenerator = llmFunction
+  .name("Band name generator")
+  .instructions("Generate some fake band names for my new band")
+  .output(
+    z.array(
+      z.object({
+        bandName: z.string(),
+        genre: z.string(),
+      })
+    )
+  .create();
+```
+
+We get
+
+```typescript
+[
+  {
+    bandName: "Electric Dreams",
+    genre: "Indie Rock",
+  },
+  {
+    bandName: "Neon Nights",
+    genre: "Synthpop",
+  },
+  {
+    bandName: "The Midnight Riders",
+    genre: "Country",
+  },
+];
+```
+
+We can also try this function out in the tracing UI!
+![image](/images/band-with-genre.png)
+
+Now et's say we only want to generate band names in `rock` `pop` and `rap` category. We can make the genre into an enum and restrict it to those genres.
+At the same time let's also tell GPT to generate the band names in spanish.
+To do that, we can add furthur directions in the `instructions` field but there is a better way!
+We can use zod's `decsribe` function to force GPT to give us spanish band names for the ket `bandName`.
+This gives you granualr control over each key without having to write complicated prompts.
+While we are at, let's also add an album names field.
+
+You can write prompt at the key level!
+
+```typescript {7-10}
+const bandNameGenerator = llmFunction
+  .name("Band name generator")
+  .instructions("Generate some fake band names for my new band")
+  .output(
+    z.array(
+      z.object({
+        // You can write prompt for each key!
+        bandName: z.string().describe('Band names are in Spanish'),
+        genre: z.enum(["rock", "pop", "rap"]),
+        albums: z.array(z.string()).describe('Their top charting albums. Titles could be in English or Spanish'),
+      })
+    )
+  .create();
+```
+
+The type of the function is automatically inferred from the zod schema passed to the output method.
+
+```typescript
+() =>
+  Promise<
+    {
+      bandName: string;
+      genre: "pop" | "rock" | "rap";
+      albumName: string[];
+    }[]
+  >;
+```
+
+Let's run this function and see what happens!
+![image](/images/with-album-names.png)
+
+It did all three things!
+
+1. `bandName` is in spanish
+2. `genre` is restricted to `rock`, `pop` and `rap`
+3. `albumNames` is an array of strings
+
+
+What if we wanted the function to takes a genre as an input and return results in that genre? This would allow you to take a user input and pass it to the function!
+To do thus we can define and interpolate a variable in our instructions.
+
+```typescript /${genre}/
+const bandNameGenerator = llmFunction
+  .name("Band name generator")
+  .instructions("Generate some fake band names for my new band ${genre}")
+  .output(
+    z.array(
+      z.object({
+        bandName: z.string(),
+        genre: z.enum(["rock", "pop", "rap"]),
+        albums: z.array(z.string()).describe('Their top charting albums. Titles could be in English or Spanish'),
+      })
+    )
+  .create();
+```
+
+The function now takes genre as an input. The type of the input is inferred from the interpolated variable in the instructions.
+Let's run this function and see what happens!
+
+```typescript
+const bandNames = bandNamesGenerator({ instructions: { genre: "rock" } });
+```
+You can also run this function in the tracing UI. An input field was auotmatically created based on the variable
+![image](/images/with-input.png)
+
+It's typesafe all the way down! You will get an error if you try to call the function without the variable `genre`!
+
+
+
+## Next steps
+
+There's a lot more you can do with llm-functions.
+
+1. [Reading documents(pdf)](/docs/core-concepts/querying-documents.md)
+1. [Scraping websites](/docs/core-concepts/scraping-websites.md)
+1. [Creating chains](/docs/core-concepts/sequencing.md)
 
 The UI can be used as a playground to test your functions.
 
+```
+
+```

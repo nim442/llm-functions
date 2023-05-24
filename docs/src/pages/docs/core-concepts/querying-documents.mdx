@@ -39,6 +39,7 @@ export const invoiceFromPdf = llmFunction
   )
   .create();
 ```
+We don't provide any instructions here. GPT is smart enough to infer the data from the zod schema!
 
 The `invoiceFromPdf` has the following type signature
 
@@ -64,6 +65,8 @@ const invoiceFromPdf: (args: {
 A PDF can be passed to the function as a buffer or a url string. Internally,
 the function will automatically convert the pdf to text or even fetch the pdf from the url if a url is provided.
 This function will generate this UI
+
+(TODO: REPLACE THIS UI WITH A GIF)
 ![invoiceFromPdf](/images/querying-documents-01.png)
 
 ## Large documents
