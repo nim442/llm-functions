@@ -172,7 +172,7 @@ export const Function: React.FC<Props> = ({
               />
             ))}
 
-            {true && (
+            {aiFunction.query?.queryInput && (
               <FormField
                 label="query"
                 control={
@@ -279,7 +279,9 @@ export const Function: React.FC<Props> = ({
             {response && <TraceComponent data={response} />}
           </>
         ) : (
-          <div className=' text-white font-semibold flex items-center justify-center h-full w-full'>No dataset</div>
+          <div className=" text-white font-semibold flex items-center justify-center h-full w-full">
+            No dataset
+          </div>
         )}
       </Tabs.Content>
     </Tabs.Root>

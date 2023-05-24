@@ -78,7 +78,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   tsOutputString?: string;
   model?: Partial<Simplify<OpenAIInput & BaseLLMParams>>;
   documents?: DocumentWithoutInput[];
-  query?: QueryFn<I, O>;
+  query?: { queryInput: boolean; fn: QueryFn<I, O> };
   instructions?: string;
   dataset?: any;
   executions: Execution<any>[];
@@ -508,7 +508,7 @@ PROMPT:"""
           input: queryArg,
           response: { type: 'loading' },
         });
-        const query = await def.query(queryArg);
+        const query = await def.query.fn(queryArg);
         const queryDoc = JSON.stringify(query);
 
         updateTrace(id, {
@@ -653,7 +653,7 @@ ${userPrompt}
     query: (q) => {
       return createAIFn({
         ...def,
-        query: q as any,
+        query: { queryInput: true, fn: q as any },
       });
     },
     create: () => {
