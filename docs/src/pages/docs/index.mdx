@@ -62,14 +62,13 @@ A Playground UI is automatically generated that allows you to test this function
 
 ## Motivation
 
-There are a other libraries that help developers write LLM chains.
-However, they are often a these shortcomings with them:
+There are other libraries that help developers write LLM chains. However, they often have these shortcomings:
 - Too much boilerplate
 - Not typesafe
 - Verbose and require some setup
-- Build in python so it's hard to integrate with existing typescript projects.
+- Built in python so they are hard to integrate with existing typescript projects
 
-The goal of llm-functions-ts is to provide sane defaults that make it extremely easy to integrate LLM's in your existting typescript projects.
+The goal of llm-functions-ts is to provide the same defaults that make it extremely easy to integrate LLMs into your existing typescript projects.
 We take typesafety very seriously. For example, changing a variable in the prompt results in a typescript error.
 
 Another challenge is that testing LLM chains is hard. **llm-functions-ts** comes with a UI that allows you to trace, evaluate and debug your functions.
@@ -79,12 +78,12 @@ The UI is automatically generated so all you have to worry about is writing your
 
 - **Fully typesafe**: Outputs a fully typesafe function that can be used anywhere in your typescript projects.
 
-- **Structured Data Output**: Using zod, you can specify any schema for an output. Built in validation and smart retries.
+- **Structured data output**: Using zod, you can specify any schema for an output. Built in validation and smart retries.
 
 - **Batteries included**: Comes with a tracing UI, automatic document chunking, structured output, and more. Just define your function and llm-functions-ts takes care of the rest.
 
-- **Automatic Chunking of Large Documents**: llm-functions will automatically optimize your documents for qurying.
+- **Automatic chunking of large documents**: llm-functions will automatically optimize your documents for querying.
 
-- **UI for Traces and Debugging**: llm-functions-ts comes with a UI that allows you to trace and debug your functions.
+- **UI for traces and debugging**: llm-functions-ts comes with a UI that allows you to trace and debug your functions.
 
 To start using **llm-functions-ts**, check out the [Getting Started](/docs/getting-started) section.

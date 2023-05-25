@@ -95,7 +95,7 @@ We get
 
 Much better! We can now map over the array and render it in a UI however we like.
 
-Now, ;et's try something more complicated. Let's add a genre name to each of these band names.
+Now, let's try something more complicated. Let's add a genre name to each of these band names.
 
 ```typescript {8}
 const bandNameGenerator = llmFunction
@@ -133,12 +133,11 @@ We get
 We can also try this function out in the tracing UI!
 ![image](/images/band-with-genre.png)
 
-Now et's say we only want to generate band names in `rock` `pop` and `rap` category. We can make the genre into an enum and restrict it to those genres.
-At the same time let's also tell GPT to generate the band names in spanish.
-To do that, we can add furthur directions in the `instructions` field but there is a better way!
-We can use zod's `decsribe` function to force GPT to give us spanish band names for the ket `bandName`.
+Now let's say we only want to generate band names in `rock` `pop` and `rap` category. We can make the genre into an enum and restrict it to those genres.
+At the same time, we'll also tell GPT to generate the band names in spanish.
+To do that, we can add furthur directions in the `instructions` field - but there is a better way! We can use zod's `decsribe` function to force GPT to give us spanish band names for the key `bandName`.
 This gives you granualr control over each key without having to write complicated prompts.
-While we are at, let's also add an album names field.
+While we're at it, let's also add an album names field.
 
 You can write prompt at the key level!
 
@@ -158,7 +157,7 @@ const bandNameGenerator = llmFunction
   .create();
 ```
 
-The type of the function is automatically inferred from the zod schema passed to the output method.
+The type of the function is automatically inferred from the zod schema passed to the output method:
 
 ```typescript
 () =>
@@ -181,8 +180,8 @@ It did all three things!
 3. `albumNames` is an array of strings
 
 
-What if we wanted the function to takes a genre as an input and return results in that genre? This would allow you to take a user input and pass it to the function!
-To do thus we can define and interpolate a variable in our instructions.
+What if we wanted the function to take a genre as an input and return results in that genre? This would allow you to take a user input and pass it to the function!
+To do this, we can define and interpolate a variable in our instructions.
 
 ```typescript /${genre}/
 const bandNameGenerator = llmFunction
