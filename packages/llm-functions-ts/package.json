@@ -1,6 +1,6 @@
 {
   "name": "llm-functions-ts",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "module": "true",
   "license": "MIT",
   "main": "dist/index.mjs",
@@ -41,7 +41,6 @@
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "^8.2.4",
-    "@types/crypto-js": "^4.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "size-limit": "^8.2.4",
@@ -52,9 +51,9 @@
   },
   "dependencies": {
     "@types/lodash": "^4.14.194",
+    "@types/pdfjs-dist": "^2.10.378",
     "cheerio": "^1.0.0-rc.12",
     "classnames": "^2.3.2",
-    "crypto-js": "^4.1.1",
     "hotscript": "^1.0.11",
     "langchain": "^0.0.76",
     "lodash": "^4.17.21",

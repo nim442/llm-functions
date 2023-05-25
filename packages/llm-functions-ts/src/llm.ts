@@ -1,6 +1,5 @@
 import { OpenAI } from 'langchain/llms/openai';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
-import sha256 from 'crypto-js/sha256';
 
 import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
 import { load } from 'cheerio';
@@ -22,6 +21,7 @@ import { printNode, zodToTs } from 'zod-to-ts';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAIInput } from 'langchain/dist/types/openai-types';
 import { BaseLLMParams } from 'langchain/dist/llms/base';
+import { cyrb53 } from './cyrb53';
 
 export type ParserZodEsque<TInput, TParsedInput> = {
   _input: TInput;
@@ -502,7 +502,26 @@ PROMPT:"""
       query: queryArg,
     } = arg as FunctionArgs;
     const executionId = createExecution(arg);
+    if (!def.query && !docs && !def.output) {
+      const userPrompt = (
+        def.instructions
+          ? interpolateFString(def.instructions, instructions as any)
+          : instructions
+          ? instructions
+          : ''
+      ) as string;
+      const id = pushToTrace(executionId, {
+        action: 'calling-open-ai',
+        template: userPrompt,
+        response: { type: 'loading' },
+      });
+      const response = await getOpenAiModel().call(userPrompt);
 
+      updateTrace(id, {
+        response: { type: 'success', output: response },
+      });
+      return resolveExecution(executionId, {});
+    }
     async function getQueryDoc() {
       if (queryArg && def.query) {
         const id = pushToTrace(executionId, {
@@ -600,11 +619,13 @@ ${userPrompt}
         return resolveExecution(executionId, response);
       }
     } catch (e) {
-      
       updateTrace(id, {
         response: { type: 'error', error: (e as any).message },
       });
-      return resolveExecution(executionId, { type: 'error', error: (e as any).message });
+      return resolveExecution(executionId, {
+        type: 'error',
+        error: (e as any).message,
+      });
     }
   };
   return {
@@ -660,7 +681,7 @@ ${userPrompt}
       });
     },
     create: () => {
-      const sha = sha256(JSON.stringify(def));
+      const sha = cyrb53(JSON.stringify(def));
       const fn = (arg: FunctionArgs) =>
         createFn(def)
           .run(arg as FunctionArgs)
