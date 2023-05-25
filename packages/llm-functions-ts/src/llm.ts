@@ -600,10 +600,11 @@ ${userPrompt}
         return resolveExecution(executionId, response);
       }
     } catch (e) {
+      
       updateTrace(id, {
         response: { type: 'error', error: (e as any).message },
       });
-      return resolveExecution(executionId, '');
+      return resolveExecution(executionId, { type: 'error', error: (e as any).message });
     }
   };
   return {
