@@ -151,15 +151,6 @@ export const Component: React.FC<TraceProps> = ({ data }) => {
                 );
               })}
             </div>
-            <div className="absolute bottom-0 border-t border-neutral-800 bg-neutral-900 p-4 w-full max-h-96">
-              <div className="text-white text-sm">Output</div>
-              {selectedAction !== undefined && (
-                <Inspector
-                  table={false}
-                  data={data[selectedAction[0]].finalResponse}
-                />
-              )}
-            </div>
           </div>
         </div>
       </div>
@@ -302,6 +293,7 @@ function renderAction(t: Trace[0]): React.ReactElement {
           </div>
         </div>
       );
+
     case 'get-document':
       return (
         <div className="flex flex-col gap-2">

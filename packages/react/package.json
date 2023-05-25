@@ -1,6 +1,6 @@
 {
   "name": "@llm-functions/react",
-  "version": "0.0.7",
+  "version": "0.0.12",
   "license": "MIT",
   "main": "dist/index.mjs",
   "typings": "dist/index.d.ts",
@@ -22,7 +22,8 @@
   },
   "peerDependencies": {
     "react": ">=16",
-    "react-dom": ">=16"
+    "react-dom": ">=16",
+    "llm-functions-ts": "^0.0.11"
   },
   "prettier": {
     "printWidth": 80,
@@ -77,7 +78,6 @@
     "crypto-js": "^4.1.1",
     "hotscript": "^1.0.11",
     "langchain": "^0.0.76",
-    "llm-functions-ts": "^0.0.5",
     "lodash": "^4.17.21",
     "nanoid": "^3.3.6",
     "pdfjs-dist": "^2.16.105",

@@ -2,12 +2,13 @@
 import { VariableIcon } from '@heroicons/react/24/outline';
 import * as Form from '@radix-ui/react-form';
 
-export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (
-  props
-) => (
-  <input
-    className="p-2 bg-neutral-900 border rounded-md border-neutral-600 text-sm focus:outline-sky-400 focus-visible:outline-sky-400 focus-visible:outline-double"
-    {...props} />
+export const Input: React.FC<
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+> = (props) => (
+  <textarea
+    className="resize p-2 bg-neutral-900 border rounded-md border-neutral-600 text-sm focus:outline-sky-400 focus-visible:outline-sky-400 focus-visible:outline-double max-w-full"
+    {...props}
+  ></textarea>
 );
 export const FormField: React.FC<{
   label: React.ReactNode;

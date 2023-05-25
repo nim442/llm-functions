@@ -96,7 +96,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
               <FormField
                 label="Text"
                 control={
-                  <Input
+                  <Input 
                     value={runtimeArgs?.documents?.[i] || ('' as any)}
                     onChange={(e) =>
                       setRuntimeArgs({

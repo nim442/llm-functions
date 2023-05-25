@@ -247,7 +247,11 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   ): Promise<Execution<TParams['_output']>>;
   runDataset(): Promise<Execution<TParams['_output']>[]>;
 }
-
+const getApiKeyFromLocalStorage = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('OPENAI_API_KEY');
+  } else return undefined;
+};
 export const createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
   onExecutionUpdate?: (execution: Execution<ProcedureParams['_output']>) => void
@@ -255,20 +259,18 @@ export const createFn = <TParams extends ProcedureParams>(
   const def = {
     model: {
       modelName: 'gpt-3.5-turbo',
-      temperature: 0.2,
-      topP: 0.1,
+      temperature: 0.7,
       maxTokens: -1,
     },
     executions: [],
     ...initDef,
   };
-  const openAiModel = new OpenAI({
-    ...def.model,
-    openAIApiKey:
-      process.env.OPENAI_API_KEY ||
-      localStorage.getItem('OPENAI_API_KEY') ||
-      undefined,
-  });
+  const getOpenAiModel = () =>
+    new OpenAI({
+      ...def.model,
+      openAIApiKey:
+        process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
+    });
 
   const getDocumentText = async (
     document: Document,
@@ -324,7 +326,7 @@ export const createFn = <TParams extends ProcedureParams>(
         const openAIEmbeddings = new OpenAIEmbeddings({
           openAIApiKey:
             process.env.OPENAI_API_KEY ||
-            localStorage.getItem('OPENAI_API_KEY') ||
+            getApiKeyFromLocalStorage() ||
             undefined,
         });
         const splitHtml = await c.createDocuments([cleanedHtml]);
@@ -372,7 +374,7 @@ PROMPT:"""
       template: prompt,
       response: { type: 'loading' },
     });
-    const response = await openAiModel.call(prompt);
+    const response = await getOpenAiModel().call(prompt);
     return { response, prompt, traceId };
   };
   const createExecution = (args: FunctionArgs) => {
@@ -581,7 +583,7 @@ ${userPrompt}
     });
 
     try {
-      const response = await openAiModel.call(zodTemplate);
+      const response = await getOpenAiModel().call(zodTemplate);
 
       if (def.output) {
         return fixZodOutputRecursive(

@@ -131,7 +131,9 @@ const simple3 = llmFunction
 const simple4 = llmFunction
   .name("Summarize site")
   .document({ type: "url" })
-  .instructions(`Create an ad for this website. THe target demographic is pirates`)
+  .instructions(
+    `Create an ad for this website. THe target demographic is pirates`
+  )
   .output(
     z.array(
       z.object({
@@ -141,7 +143,25 @@ const simple4 = llmFunction
   )
   .create();
 
+const titlesForAgenda = llmFunction
+  .name("Alliterative titles")
+  .withModelParams({ modelName: "text-davinci-003", maxTokens: 500 })
+  .instructions(
+    `I want to create an agenda slide based on the agenda data. The titles are alliterative
+{agendaData}`
+  )
+  .output(
+    z.array(
+      z.object({
+        time: z.string(),
+        title: z.string().describe("The title is alliterative"),
+      })
+    )
+  )
+  .create();
+
 export const examples = [
+  titlesForAgenda,
   simple4,
   simple,
   simple3,
