@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
-    "@llm-functions/react": "^0.0.11",
+    "@llm-functions/react": "*",
     "@types/node": "20.2.1",
     "@types/react": "18.2.6",
     "@types/react-dom": "18.2.4",

@@ -502,26 +502,7 @@ PROMPT:"""
       query: queryArg,
     } = arg as FunctionArgs;
     const executionId = createExecution(arg);
-    if (!def.query && !docs && !def.output) {
-      const userPrompt = (
-        def.instructions
-          ? interpolateFString(def.instructions, instructions as any)
-          : instructions
-          ? instructions
-          : ''
-      ) as string;
-      const id = pushToTrace(executionId, {
-        action: 'calling-open-ai',
-        template: userPrompt,
-        response: { type: 'loading' },
-      });
-      const response = await getOpenAiModel().call(userPrompt);
 
-      updateTrace(id, {
-        response: { type: 'success', output: response },
-      });
-      return resolveExecution(executionId, {});
-    }
     async function getQueryDoc() {
       if (queryArg && def.query) {
         const id = pushToTrace(executionId, {

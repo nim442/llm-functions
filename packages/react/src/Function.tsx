@@ -60,18 +60,7 @@ export const Function: React.FC<Props> = ({
     i: string
   ) => {
     e.preventDefault();
-
     if (applyDataSet) {
-      if (evaluateDataset) {
-        const response = await evaluateDataset(id);
-        setResponse(response);
-      } else {
-        const fn = createFn(aiFunction);
-
-        const response = await fn.runDataset();
-        setResponse(response);
-        setLoading(false);
-      }
     } else {
       const response = await (evaluateFn
         ? evaluateFn(i, runtimeArgs).then((s) => s)
@@ -262,9 +251,17 @@ export const Function: React.FC<Props> = ({
               <div className="flex-1"></div>
               <button
                 type="button"
-                onClick={async (e) => {
-                  generateResponse(e, id);
-                  setLoading(true);
+                onClick={async () => {
+                  if (evaluateDataset) {
+                    const response = await evaluateDataset(id);
+                    setResponse(response);
+                  } else {
+                    const fn = createFn(aiFunction);
+
+                    const response = await fn.runDataset();
+                    setResponse(response);
+                    setLoading(false);
+                  }
                 }}
                 className="button bg-white  text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative"
               >
