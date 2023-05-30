@@ -1,5 +1,5 @@
 {
-  "name": "llm-functions-ts-turbo",
+  "name": "llm-functions-turbo",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -9,12 +9,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "test": "turbo run test",
     "test:watch": "turbo run test:watch",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "preinstall": "npx only-allow pnpm"
   },
-  "workspaces": [
-    "packages/*",
-    "docs"
-  ],
   "engines": {
     "node": ">=14.0.0"
   },
@@ -24,5 +21,6 @@
     "prettier": "latest",
     "turbo": "^1.9.3",
     "typescript": "5.1.0-beta"
-  }
+  },
+  "packageManager": "pnpm@8.5.1"
 }
