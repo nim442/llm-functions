@@ -16,6 +16,8 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
+    "@llm-functions/react": "workspace:*",
+    "@radix-ui/react-switch": "^1.0.3",
     "@types/node": "18.16.0",
     "dotenv": "latest",
     "prettier": "latest",

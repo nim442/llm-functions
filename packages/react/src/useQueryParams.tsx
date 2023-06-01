@@ -17,7 +17,7 @@ export function useQueryParams<T>(
     comma: true,
     arrayLimit: Infinity,
   });
-  // TODO use ZOD instead of assertion
+
   const existingQuery = existingQueries[key] as unknown as T;
 
   const data = existingQuery;
@@ -29,7 +29,7 @@ export function useQueryParams<T>(
       { ...existingQueries, [key]: o },
       { skipNulls: true }
     );
-    console.log(queryString);
+
     //@ts-ignore
     window.history.replaceState(null, null, '?' + queryString);
 

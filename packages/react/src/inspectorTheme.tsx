@@ -1,3 +1,11 @@
+//@ts-nocheck
+import { Config } from 'tailwindcss';
+import resolveConfig from 'tailwindcss/resolveConfig';
+
+import tailwindConfig from '../tailwind.config';
+
+const fullConfig = resolveConfig(tailwindConfig as Config);
+
 const key = 'rgb(156, 220, 254)';
 export const inspectorTheme = {
   BASE_FONT_FAMILY: 'Menlo, monospace',
@@ -37,10 +45,10 @@ export const inspectorTheme = {
   TREENODE_LINE_HEIGHT: 1.2,
   TREENODE_PADDING_LEFT: 12,
 
-  TABLE_BORDER_COLOR: 'rgb(85, 85, 85)',
-  TABLE_TH_BACKGROUND_COLOR: 'rgb(44, 44, 44)',
+  TABLE_BORDER_COLOR: fullConfig.theme?.colors?.neutral[900],
+  TABLE_TH_BACKGROUND_COLOR: fullConfig.theme?.colors?.neutral[800],
   TABLE_TH_HOVER_COLOR: 'rgb(48, 48, 48)',
-  TABLE_SORT_ICON_COLOR: 'black', //'rgb(48, 57, 66)',
+  TABLE_SORT_ICON_COLOR: fullConfig.theme?.colors?.neutral[800],
   TABLE_DATA_BACKGROUND_IMAGE:
     'linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(51, 139, 255, 0.0980392) 50%, rgba(51, 139, 255, 0.0980392))',
   TABLE_DATA_BACKGROUND_SIZE: '128px 32px',

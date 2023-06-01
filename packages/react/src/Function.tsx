@@ -29,17 +29,45 @@ import SyntaxHighlighter from 'react-syntax-highlighter';
 import { vs2015 as theme } from 'react-syntax-highlighter/dist/cjs/styles/hljs';
 
 import { FormField, Input } from './FormField';
+import { Store, TABS, tabsLabels, useStore } from './store';
+import { LogsTable } from './LogsTable';
 
-export type Props = {
+import * as Switch from '@radix-ui/react-switch';
+import { useInternalStore } from './internalStore';
+
+export const Button: React.FC<
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+> = ({ className, ...props }) => {
+  return (
+    <div className={classNames(className, 'relative w-full group')}>
+      <div
+        className={classNames(
+          'absolute  w-full h-full top-0  rounded-full transition-all duration-300 blur-md group-hover:opacity-100 opacity-0',
+          'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-100 via-sky-300 to-sky-500'
+        )}
+      ></div>
+      <button
+        className={classNames(
+          'button bg-white text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative'
+        )}
+        {...props}
+      />
+    </div>
+  );
+};
+
+export type FunctionProps = {
+  logs?: Execution<any>[];
   aiFunction: ProcedureBuilderDef;
   evaluateDataset?: (idx: string) => Promise<Execution<any>[]>;
   evaluateFn?: (idx: string, args: FunctionArgs) => Promise<Execution<any>>;
-};
+} & Partial<Store>;
 
-export const Function: React.FC<Props> = ({
+export const Function: React.FC<FunctionProps> = ({
   aiFunction,
   evaluateDataset,
   evaluateFn,
+  ...props
 }) => {
   const id = aiFunction.id;
   if (!id) return <>'Missing id'</>;
@@ -54,7 +82,10 @@ export const Function: React.FC<Props> = ({
 
   const [runtimeArgs, setRuntimeArgs] = useState<FunctionArgs>({});
   const [applyDataSet] = useState(false);
-
+  const selectedTab = useStore((s) => props.selectedTab || s.selectedTab);
+  const setSelectedTab = useStore(
+    (s) => props.setSelectedTab || s.setSelectedTab
+  );
   const generateResponse = async (
     e: React.MouseEvent<HTMLButtonElement>,
     i: string
@@ -83,49 +114,84 @@ export const Function: React.FC<Props> = ({
       });
     }
   };
+  const enableTableView = useInternalStore((s) => s.enableTableView);
+  const toggleEnableTableView = useInternalStore(
+    (s) => s.toggleEnableTableView
+  );
+  const handleEvaluateDatasetClick = async () => {
+    if (evaluateDataset) {
+      const response = await evaluateDataset(id);
+      setResponse(response);
+    } else {
+      setLoading(true);
+      const response = await createFn(aiFunction, (t) => {
+        setResponse((resp) => {
+          const r = resp?.find((d) => d.id === t.id);
+          if (r) {
+            return resp?.map((d) => (d.id === t.id ? t : d));
+          }
+          return [...(resp || []), t];
+        });
+      }).runDataset();
+
+      setResponse(response);
+      setLoading(false);
+    }
+  };
 
   return (
     <Tabs.Root
+      value={selectedTab}
+      onValueChange={(v) => setSelectedTab(v as Store['selectedTab'])}
       className="flex flex-col flex-1 h-full overflow-hidden"
       defaultValue="tab1"
     >
       <div className="px-4 border-b border-neutral-800">
         <div className="py-4 w-full justify-center flex flex-col">
-          <div className="flex gap-1 items-center">
-            <CommandLineIcon className="w-6 h-6 text-white" />
-            <div className="text-white text-lg">
-              {aiFunction.name || 'AI function'}
+          <div className="flex justify-between">
+            <div className="flex gap-1 items-center">
+              <CommandLineIcon className="w-6 h-6 text-white" />
+              <div className="text-white text-lg">
+                {aiFunction.name || 'AI function'}
+              </div>
             </div>
-          </div>
-          <div className="text-neutral-500 text-sm">
-            {aiFunction.description}
+            <div className="text-neutral-500 text-sm">
+              {aiFunction.description}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-neutral-500" htmlFor="table-view">
+                JSON view
+              </label>
+              <Switch.Root
+                checked={enableTableView}
+                onCheckedChange={toggleEnableTableView}
+                className="w-8 h-5 bg-neutral-800 rounded-full"
+                id="table-view"
+              >
+                <Switch.Thumb className="data-[state='checked']:translate-x-[14px] translate-x-[2px] block w-4 h-4 bg-white rounded-full transition-all" />
+              </Switch.Root>
+              <label className="text-sm text-neutral-500" htmlFor="table-view">
+                Table view
+              </label>
+            </div>
           </div>
         </div>
         <Tabs.List className="gap-4 flex text-sm">
-          <Tabs.Trigger
-            className="data-[state=active]:text-white data-[state=active]:border-b text-neutral-500 py-2"
-            value="tab1"
-          >
-            Playground
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            className="data-[state=active]:text-white data-[state=active]:border-b text-neutral-500 py-2"
-            value="tab2"
-          >
-            Datasets
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            className="data-[state=active]:text-white data-[state=active]:border-b text-neutral-500 py-2"
-            value="tab3"
-          >
-            Logs
-          </Tabs.Trigger>
+          {TABS.map((tab) => (
+            <Tabs.Trigger
+              key={tab}
+              className="data-[state=active]:text-white data-[state=active]:border-b text-neutral-500 py-2"
+              value={tab}
+            >
+              {tabsLabels[tab]}
+            </Tabs.Trigger>
+          ))}
         </Tabs.List>
       </div>
 
       <Tabs.Content
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
-        value="tab1"
+        value={'PLAYGROUND' satisfies Store['selectedTab']}
       >
         <Form.Root className="w-full p-6 flex gap-4 flex-col border-r border-neutral-800 max-w-[400px] justify-between overflow-auto h-full">
           <div className="flex flex-col gap-4 text-neutral-200">
@@ -215,55 +281,41 @@ export const Function: React.FC<Props> = ({
               </div>
             </div>
           </div>
-          <div className="relative w-full group">
-            <div
-              className={classNames(
-                'absolute  w-full h-full top-0  rounded-full transition-all duration-300 blur-md group-hover:opacity-100 opacity-0',
-                'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-100 via-sky-300 to-sky-500'
+
+          <Button
+            type="button"
+            onClick={async (e) => {
+              generateResponse(e, id);
+              setLoading(true);
+            }}
+          >
+            <span className="flex relative justify-center items-center group-hover:text-sky-600 transition-all">
+              Evaluate
+              {loading && (
+                <ArrowPathIcon className="w-4 h-4 animate-spin absolute right-0" />
               )}
-            ></div>
-            <button
-              type="button"
-              onClick={async (e) => {
-                generateResponse(e, id);
-                setLoading(true);
-              }}
-              className="button bg-white  text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative"
-            >
-              <span className="flex relative justify-center items-center group-hover:text-sky-600 transition-all">
-                Evaluate
-                {loading && (
-                  <ArrowPathIcon className="w-4 h-4 animate-spin absolute right-0" />
-                )}
-              </span>
-            </button>
-          </div>
+            </span>
+          </Button>
         </Form.Root>
         {response && <TraceComponent data={response} />}
       </Tabs.Content>
       <Tabs.Content
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
-        value="tab2"
+        value={'DATASET' satisfies Store['selectedTab']}
       >
         {aiFunction.dataset ? (
-          <>
-            <Form.Root className="w-full p-6 flex gap-4 flex-col border-r border-neutral-800 max-w-[400px] justify-between overflow-auto h-full">
-              <div className="flex-1"></div>
-              <button
+          <div className="w-full">
+            <div className="flex justify-between p-4 border-b border-neutral-800">
+              <div className="text-white">
+                <div className="text-white">Dataset</div>
+                <div className="text-neutral-500 text-sm">
+                  Last ran: yesterday
+                </div>
+              </div>
+              <Button
+                className="!w-fit"
                 type="button"
-                onClick={async () => {
-                  if (evaluateDataset) {
-                    const response = await evaluateDataset(id);
-                    setResponse(response);
-                  } else {
-                    const fn = createFn(aiFunction);
-
-                    const response = await fn.runDataset();
-                    setResponse(response);
-                    setLoading(false);
-                  }
-                }}
-                className="button bg-white  text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative"
+                onClick={handleEvaluateDatasetClick}
               >
                 <span className="flex relative justify-center items-center">
                   Evaluate dataset
@@ -271,15 +323,21 @@ export const Function: React.FC<Props> = ({
                     <ArrowPathIcon className="w-4 h-4 animate-spin absolute right-0" />
                   )}
                 </span>
-              </button>
-            </Form.Root>
-            {response && <TraceComponent data={response} />}
-          </>
+              </Button>
+            </div>
+            <LogsTable data={response} />
+          </div>
         ) : (
           <div className=" text-white font-semibold flex items-center justify-center h-full w-full">
             No dataset
           </div>
         )}
+      </Tabs.Content>
+      <Tabs.Content
+        className="flex overflow-auto h-full data-[state='inactive']:hidden"
+        value={'LOGS' satisfies Store['selectedTab']}
+      >
+        <LogsTable data={props.logs} />
       </Tabs.Content>
     </Tabs.Root>
   );

@@ -80,7 +80,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   documents?: DocumentWithoutInput[];
   query?: { queryInput: boolean; fn: QueryFn<I, O> };
   instructions?: string;
-  dataset?: any;
+  dataset?: FunctionArgs[];
   executions: Execution<any>[];
   mapFns?: Function[];
   sequences?: ProcedureBuilderDef[];
@@ -406,6 +406,7 @@ PROMPT:"""
       e.id === executionId ? { ...e, trace: [...e.trace, actionWithId] } : e
     ) as ProcedureBuilderDef['executions'];
     const execution = def.executions.find((e) => e.id === executionId);
+
     if (onExecutionUpdate && execution) {
       onExecutionUpdate(execution);
     }
@@ -618,7 +619,7 @@ ${userPrompt}
       return createFn({ ...def, description });
     },
     dataset: (dataset) => {
-      return createFn({ ...def, dataset });
+      return createFn({ ...def, dataset: dataset as any });
     },
 
     instructions: (template) => {

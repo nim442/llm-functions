@@ -10,6 +10,7 @@ import { Inspector } from './Inspector';
 
 import { ArrowPathIcon, CommandLineIcon } from '@heroicons/react/24/outline';
 import classNames from 'classnames';
+import { useInternalStore } from './internalStore';
 
 export type ResponseProps = { response: string };
 export const Response: React.FC<ResponseProps> = ({ response }) => {
@@ -36,6 +37,7 @@ const ErrorState: React.FC<{ message: React.ReactNode }> = ({ message }) => {
 
 export const Component: React.FC<TraceProps> = ({ data }) => {
   const [selectedAction, setSelectedAction] = useState<[number, number]>();
+  const enableTableView = useInternalStore((s) => s.enableTableView);
   return (
     <div className=" w-full flex">
       <div className="flex-1">
@@ -54,11 +56,13 @@ export const Component: React.FC<TraceProps> = ({ data }) => {
                           </span>
                         </span>
                       </div>
-
                       <div className="flex flex-col gap-1 mb-2">
                         <div className="text-neutral-500 text-xs">Input</div>
                         <div className="text-white text-sm whitespace-break-spaces rounded">
-                          <Inspector name="Input" table={false} data={inputs} />
+                          <Inspector
+                            table={enableTableView}
+                            data={inputs}
+                          />
                         </div>
                       </div>
                       <div className="flex flex-col gap-1 mb-2">
@@ -66,8 +70,7 @@ export const Component: React.FC<TraceProps> = ({ data }) => {
                         <div className="text-white text-sm whitespace-break-spaces rounded">
                           {finalResponse ? (
                             <Inspector
-                              name="Output"
-                              table={false}
+                              table={enableTableView}
                               data={finalResponse}
                             />
                           ) : (

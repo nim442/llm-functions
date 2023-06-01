@@ -7,7 +7,7 @@
     "**/*.tsx",
     "types",
     "src/components/exampleResponse.ts"
-  ],
+, "../../docs/src/components/exampleLogs.ts"  ],
   "compilerOptions": {
     "module": "esnext",
     "lib": [

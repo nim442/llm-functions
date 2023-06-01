@@ -6,30 +6,32 @@ import { FunctionArgs, ProcedureBuilderDef, Execution } from 'llm-functions-ts';
 
 import classNames from 'classnames';
 
-import { useStore } from './store';
+import { Store, useStore } from './store';
 import { groupBy, mapValues } from 'lodash';
 import { Function } from './Function';
-import { useQueryParams } from './useQueryParams';
 
 export type Props = {
+  logs?: Execution<any>[];
   aiFunctions: ProcedureBuilderDef[];
   evaluateDataset?: (idx: string) => Promise<Execution<any>[]>;
   evaluateFn?: (idx: string, args: FunctionArgs) => Promise<Execution<any>>;
-};
+} & Partial<Store>;
 
 export const Main: React.FC<Props> = ({
   aiFunctions: _aiFunctions,
   evaluateFn,
   evaluateDataset,
+  ...props
 }) => {
   const aiFunctions = mapValues(
     groupBy(_aiFunctions, (d) => d.id),
     (d) => d[0]
   );
 
-  const setSelectedFn = useStore((s) => s.setSelectedFn);
-  const index = useStore((s) => s.selectedFnId);
-  const [, setIndex] = useQueryParams('functionId', undefined, setSelectedFn);
+  const setIndex = useStore(
+    (s) => props.setSelectedFunctionId || s.setSelectedFunctionId
+  );
+  const index = useStore((s) => props.functionId || s.functionId);
 
   return (
     <div className="h-full w-full flex justify-center bg-neutral-900">
@@ -65,6 +67,7 @@ export const Main: React.FC<Props> = ({
           aiFunction={aiFunctions[index]}
           evaluateDataset={evaluateDataset}
           evaluateFn={evaluateFn}
+          {...props}
         />
       ) : (
         <div className="flex flex-col items-center justify-center text-white flex-1">

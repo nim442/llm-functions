@@ -5,8 +5,9 @@ export const askInvoiceOrQuotesQuestion = llmFunction
   .output(z.object({ question: z.string().nullable() }))
   .instructions(
     `Answer the following question based on the above invoice.csv.
-{question}`
+    {question}`
   )
+  .dataset([{ instructions: { question: "s" } }])
   .create();
 
 export const invoiceFromPdf = llmFunction
@@ -158,6 +159,11 @@ const titlesForAgenda = llmFunction
       })
     )
   )
+  .dataset([
+    { instructions: { agendaData: "A" } },
+    { instructions: { agendaData: "B" } },
+    { instructions: { agendaData: "C" } },
+  ])
   .create();
 
 export const examples = [
