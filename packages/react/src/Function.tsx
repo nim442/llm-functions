@@ -97,7 +97,7 @@ export const Function: React.FC<FunctionProps> = ({
       ? evaluateFn(i, runtimeArgs, (t) => {
           setResponse(t);
         })
-      : createFn(aiFunction, (t) => {
+      : createFn(aiFunction, [], (t) => {
           setResponse(t);
         }).run(runtimeArgs));
 
@@ -114,7 +114,7 @@ export const Function: React.FC<FunctionProps> = ({
       setDataset(response);
     } else {
       setLoading(true);
-      const response = await createFn(aiFunction, (t) => {
+      const response = await createFn(aiFunction, [], (t) => {
         setDataset((resp) => {
           const r = resp?.find((d) => d.id === t.id);
           if (r) {

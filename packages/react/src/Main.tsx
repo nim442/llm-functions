@@ -64,7 +64,7 @@ export const Main: React.FC<Props> = ({
       {index ? (
         <Function
           key={index}
-          logs={logs.filter((d) => d.functionId === index)}
+          logs={logs.filter((d) => d.functionDef.id === index)}
           aiFunction={aiFunctions[index]}
           evaluateDataset={evaluateDataset}
           evaluateFn={evaluateFn}

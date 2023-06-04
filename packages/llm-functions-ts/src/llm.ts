@@ -68,7 +68,7 @@ export type Execution<T> = {
   inputs: FunctionArgs;
   trace: Trace;
   finalResponse?: FinalResponse<T>;
-  functionId: ProcedureBuilderDef['id'];
+  functionDef: ProcedureBuilderDef;
 };
 type Sequence<T = unknown> =
   | ProcedureBuilderDef
@@ -85,7 +85,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   query?: { queryInput: boolean; fn: QueryFn<I, O> };
   instructions?: string;
   dataset?: FunctionArgs[];
-  executions: Execution<any>[];
+
   mapFns?: Function[];
   sequences?: Sequence[];
 };
@@ -258,6 +258,7 @@ const getApiKeyFromLocalStorage = () => {
 };
 export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
+  executions?: Execution<any>[],
   onExecutionUpdate?: (
     execution: Execution<ProcedureParams['_output']>
   ) => void,
@@ -268,7 +269,8 @@ export type createFn = <TParams extends ProcedureParams>(
 ) => ProcedureBuilder<TParams>;
 
 export const createFn: createFn = (initDef, ...args) => {
-  const [onExecutionUpdate, onExecutionFinished, onCreated] = args;
+  let [executions] = args;
+  const [, onExecutionUpdate, onExecutionFinished, onCreated] = args;
   const def = {
     model: {
       modelName: 'gpt-3.5-turbo',
@@ -322,7 +324,7 @@ export const createFn: createFn = (initDef, ...args) => {
       case 'text':
         return document.input;
       case 'url':
-        const id = pushToTrace(executionId, {
+        const id = createTrace(executionId, {
           action: 'get-document',
           input: document,
           response: { type: 'loading' },
@@ -382,7 +384,7 @@ PROMPT:"""
       zodError: JSON.stringify(zodError),
       object: JSON.stringify(object),
     });
-    const traceId = pushToTrace(executionId, {
+    const traceId = createTrace(executionId, {
       action: 'calling-open-ai',
       template: prompt,
       response: { type: 'loading' },
@@ -392,7 +394,7 @@ PROMPT:"""
   };
   const createExecution = (args: FunctionArgs) => {
     const id = nanoid.nanoid();
-    def.executions.push({ id, trace: [], inputs: args, functionId: def.id });
+    executions?.push({ id, trace: [], inputs: args, functionDef: def });
     return id;
   };
   const resolveExecution = (
@@ -400,25 +402,26 @@ PROMPT:"""
     finalResponse: any,
     trace: Trace = []
   ) => {
-    def.executions = def.executions.map((e) =>
+    executions = executions?.map((e) =>
       e.id === executionId
         ? { ...e, finalResponse, trace: [...e.trace, ...trace] }
         : e
-    ) as ProcedureBuilderDef['executions'];
-    const execution = def.executions.find((e) => e.id === executionId);
+    ) as Execution<any>[];
+
+    const execution = executions?.find((e) => e.id === executionId);
     if (!execution) {
       throw new Error('Execution not found');
     }
     return execution;
   };
 
-  const pushToTrace = (executionId: string, action: DOmit<Action, 'id'>) => {
+  const createTrace = (executionId: string, action: DOmit<Action, 'id'>) => {
     const id = nanoid.nanoid();
     const actionWithId = { ...action, id };
-    def.executions = def.executions.map((e) =>
+    executions = executions?.map((e) =>
       e.id === executionId ? { ...e, trace: [...e.trace, actionWithId] } : e
-    ) as ProcedureBuilderDef['executions'];
-    const execution = def.executions.find((e) => e.id === executionId);
+    ) as Execution<any>[];
+    const execution = executions?.find((e) => e.id === executionId);
 
     if (onExecutionUpdate && execution) {
       onExecutionUpdate(execution);
@@ -426,10 +429,10 @@ PROMPT:"""
     return id;
   };
   const updateTrace = (id: string, action: Partial<Action>) => {
-    def.executions = def.executions.map((e) => ({
+    executions = executions?.map((e) => ({
       ...e,
       trace: e.trace.map((t) => (t.id === id ? { ...t, ...action } : t)),
-    })) as ProcedureBuilderDef['executions'];
+    })) as Execution<any>[];
   };
 
   const fixZodOutputRecursive = async <T extends z.Schema>(
@@ -441,7 +444,7 @@ PROMPT:"""
     retries = 0
   ): Promise<z.infer<T>> => {
     if (retries > 5) {
-      pushToTrace(executionId, {
+      createTrace(executionId, {
         action: 'calling-open-ai',
         template,
         response: {
@@ -519,7 +522,7 @@ PROMPT:"""
 
     async function getQueryDoc() {
       if (queryArg && def.query) {
-        const id = pushToTrace(executionId, {
+        const id = createTrace(executionId, {
           action: 'query',
           input: queryArg,
           response: { type: 'loading' },
@@ -590,7 +593,7 @@ PROMPT:"""
 ${userPrompt}
 """`;
 
-    const id = pushToTrace(executionId, {
+    const id = createTrace(executionId, {
       action: 'calling-open-ai',
       template: zodTemplate,
       response: { type: 'loading' },
@@ -722,7 +725,7 @@ ${userPrompt}
         return p.then(({ finalResponse, id }) => {
           const functionDef =
             typeof aiFun === 'function' ? aiFun(finalResponse) : aiFun;
-          pushToTrace(id, {
+          createTrace(id, {
             action: 'calling-another-function',
             functionDef,
             input: finalResponse,
@@ -776,6 +779,8 @@ export const initLLmFunction = (logsProvider?: {
   registry: Registry;
   llmFunction: ProcedureBuilder<ProcedureParams>;
 } => {
+  const executions: Record<string, Execution<any>[]> = {};
+
   const executionLogs: Execution<any>[] = logsProvider?.getLogs() || [];
   const logHandler = (l: Execution<string>) => {
     executionLogs.push(l);
@@ -786,9 +791,11 @@ export const initLLmFunction = (logsProvider?: {
   const llmFunction = createFn(
     undefined,
     undefined,
+    undefined,
     logHandler,
     (def: ProcedureBuilderDef) => {
       functionsDefs.push(def);
+      executions[def.id || ''] = [];
     }
   );
 
@@ -803,6 +810,7 @@ export const initLLmFunction = (logsProvider?: {
         }
         return createFn(
           fnDef,
+          executions[idx],
           (l) => {
             respCallback && respCallback(l);
           },
@@ -816,6 +824,7 @@ export const initLLmFunction = (logsProvider?: {
         }
         return createFn(
           fnDef,
+          executions[idx],
           (l) => {
             respCallback && respCallback(l);
           },

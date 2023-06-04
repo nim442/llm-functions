@@ -107,7 +107,9 @@ const getAnEmail = llmFunction
   .instructions("What's a random website of a caterer.")
   .output(z.object({ websiteUrl: z.string() }))
   .map((s) => {
-    return { documents: ['https://www.cateringbyseasons.com/'] satisfies [string] };
+    return {
+      documents: ["https://www.cateringbyseasons.com/"] satisfies [string],
+    };
   })
   .sequence(scrapeSite)
   .create();
@@ -115,8 +117,12 @@ const getAnEmail = llmFunction
 const poem = llmFunction
   .withModelParams({ temperature: 0.8 })
   .name("Poet")
-  .instructions("Write a poem")
+  .instructions("Write a poem {a}")
+  .dataset([
+    { instructions: { a: "about love" } },
+    { instructions: { a: "about humour" } },
+  ])
   .output(z.object({ poem: z.string() }))
   .create();
-
+console.log(registry);
 export { registry };
