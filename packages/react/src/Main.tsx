@@ -2,7 +2,7 @@
 import './index.css';
 
 import { CommandLineIcon } from '@heroicons/react/24/outline';
-import { FunctionArgs, ProcedureBuilderDef, Execution } from 'llm-functions-ts';
+import { Registry } from 'llm-functions-ts';
 
 import classNames from 'classnames';
 
@@ -11,16 +11,16 @@ import { groupBy, mapValues } from 'lodash';
 import { Function } from './Function';
 
 export type Props = {
-  logs?: Execution<any>[];
-  aiFunctions: ProcedureBuilderDef[];
-  evaluateDataset?: (idx: string) => Promise<Execution<any>[]>;
-  evaluateFn?: (idx: string, args: FunctionArgs) => Promise<Execution<any>>;
+  registry: Registry;
 } & Partial<Store>;
 
 export const Main: React.FC<Props> = ({
-  aiFunctions: _aiFunctions,
-  evaluateFn,
-  evaluateDataset,
+  registry: {
+    functionsDefs: _aiFunctions,
+    executionLogs: logs,
+    evaluateFn,
+    evaluateDataset,
+  },
   ...props
 }) => {
   const aiFunctions = mapValues(
@@ -64,6 +64,7 @@ export const Main: React.FC<Props> = ({
       {index ? (
         <Function
           key={index}
+          logs={logs.filter((d) => d.functionId === index)}
           aiFunction={aiFunctions[index]}
           evaluateDataset={evaluateDataset}
           evaluateFn={evaluateFn}

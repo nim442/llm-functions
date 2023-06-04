@@ -68,7 +68,11 @@ export type Execution<T> = {
   inputs: FunctionArgs;
   trace: Trace;
   finalResponse?: FinalResponse<T>;
+  functionId: ProcedureBuilderDef['id'];
 };
+type Sequence<T = unknown> =
+  | ProcedureBuilderDef
+  | ((output: T) => ProcedureBuilderDef);
 
 export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   id?: string;
@@ -83,7 +87,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   dataset?: FunctionArgs[];
   executions: Execution<any>[];
   mapFns?: Function[];
-  sequences?: ProcedureBuilderDef[];
+  sequences?: Sequence[];
 };
 interface GetName extends Fn {
   return: this['arg0']['type'] extends infer A
@@ -252,10 +256,19 @@ const getApiKeyFromLocalStorage = () => {
     return localStorage.getItem('OPENAI_API_KEY');
   } else return undefined;
 };
-export const createFn = <TParams extends ProcedureParams>(
+export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
-  onExecutionUpdate?: (execution: Execution<ProcedureParams['_output']>) => void
-): ProcedureBuilder<TParams> => {
+  onExecutionUpdate?: (
+    execution: Execution<ProcedureParams['_output']>
+  ) => void,
+  onExecutionFinished?: (
+    execution: Execution<ProcedureParams['_output']>
+  ) => void,
+  onCreated?: (fnDef: ProcedureBuilderDef) => void
+) => ProcedureBuilder<TParams>;
+
+export const createFn: createFn = (initDef, ...args) => {
+  const [onExecutionUpdate, onExecutionFinished, onCreated] = args;
   const def = {
     model: {
       modelName: 'gpt-3.5-turbo',
@@ -379,7 +392,7 @@ PROMPT:"""
   };
   const createExecution = (args: FunctionArgs) => {
     const id = nanoid.nanoid();
-    def.executions.push({ id, trace: [], inputs: args });
+    def.executions.push({ id, trace: [], inputs: args, functionId: def.id });
     return id;
   };
   const resolveExecution = (
@@ -613,62 +626,78 @@ ${userPrompt}
   return {
     __internal: { def: def },
     name: (name: string) => {
-      return createFn({ ...def, name });
+      return createFn({ ...def, name }, ...args);
     },
     description: (description: string) => {
-      return createFn({ ...def, description });
+      return createFn({ ...def, description }, ...args);
     },
     dataset: (dataset) => {
-      return createFn({ ...def, dataset: dataset as any });
+      return createFn({ ...def, dataset: dataset as any }, ...args);
     },
 
     instructions: (template) => {
-      return createFn({ ...def, instructions: template });
+      return createFn({ ...def, instructions: template }, ...args);
     },
     withModelParams: (model) => {
-      return createFn({ ...def, model: { ...def.model, ...model } });
+      return createFn({ ...def, model: { ...def.model, ...model } }, ...args);
     },
 
     output: (t) => {
       const tsOutputString = printNode(zodToTs(t).node);
-      return createFn({
-        output: t,
-        tsOutputString,
-        ...def,
-      });
+      return createFn(
+        {
+          output: t,
+          tsOutputString,
+          ...def,
+        },
+        ...args
+      );
     },
     map: (mapFn) => {
-      return createFn({
-        ...def,
-        mapFns: [...(def.mapFns || []), mapFn],
-      }) as any;
+      return createFn(
+        {
+          ...def,
+          mapFns: [...(def.mapFns || []), mapFn],
+        },
+        ...args
+      ) as any;
     },
     sequence: (t) => {
       const aiFn = assertAiFn(t);
-      return createFn({
-        ...def,
-        sequences: [...(def.sequences || []), aiFn.__internal_def],
-      }) as any;
+      return createFn(
+        {
+          ...def,
+          sequences: [...(def.sequences || []), aiFn.__internal_def],
+        },
+        ...args
+      ) as any;
     },
     document: (d) => {
-      return createFn({
-        ...def,
-        documents: [...(def.documents || []), d],
-      });
+      return createFn(
+        {
+          ...def,
+          documents: [...(def.documents || []), d],
+        },
+        ...args
+      );
     },
     query: (q) => {
-      return createFn({
-        ...def,
-        query: { queryInput: true, fn: q as any },
-      });
+      return createFn(
+        {
+          ...def,
+          query: { queryInput: true, fn: q as any },
+        },
+        ...args
+      );
     },
     create: () => {
       const sha = cyrb53(JSON.stringify(def));
       const fn = (arg: FunctionArgs) =>
-        createFn(def)
+        createFn(def, ...args)
           .run(arg as FunctionArgs)
           .then((r) => r.finalResponse);
       fn.__internal_def = { ...def, id: sha.toString() };
+      onCreated && onCreated(fn.__internal_def);
       return fn as any;
     },
     runDataset() {
@@ -684,20 +713,26 @@ ${userPrompt}
         const finalResponse = mapFns.reduce((p, fn) => {
           return fn(p);
         }, r.finalResponse);
-        return resolveExecution(r.id, finalResponse);
+        const execution = resolveExecution(r.id, finalResponse);
+        onExecutionFinished?.(execution);
+        return execution;
       });
 
       const sequenceResp = (def.sequences || []).reduce((p, aiFun) => {
         return p.then(({ finalResponse, id }) => {
+          const functionDef =
+            typeof aiFun === 'function' ? aiFun(finalResponse) : aiFun;
           pushToTrace(id, {
             action: 'calling-another-function',
-            functionDef: aiFun,
+            functionDef,
             input: finalResponse,
           });
-          return createFn(aiFun)
+          return createFn(functionDef)
             .run(finalResponse)
             .then((r) => {
-              return resolveExecution(id, r.finalResponse, r.trace);
+              const execution = resolveExecution(id, r.finalResponse, r.trace);
+              onExecutionFinished?.(execution);
+              return execution;
             });
         });
       }, resp);
@@ -719,3 +754,75 @@ export const assertAiFn = <T>(fn: T): AiFunction<T> => {
 };
 
 export const llmFunction = createFn();
+
+export type Registry = {
+  executionLogs: Execution<any>[];
+  functionsDefs: ProcedureBuilderDef[];
+  evaluateDataset?: (
+    idx: string,
+    callback?: (ex: Execution<any>) => void
+  ) => Promise<Execution<any>[]>;
+  evaluateFn?: (
+    idx: string,
+    args: FunctionArgs,
+    callback?: (ex: Execution<any>) => void
+  ) => Promise<Execution<any>>;
+};
+
+export const initLLmFunction = (logsProvider?: {
+  getLogs: () => Execution<any>[];
+  saveLog: (exec: Execution<any>) => void;
+}): {
+  registry: Registry;
+  llmFunction: ProcedureBuilder<ProcedureParams>;
+} => {
+  const executionLogs: Execution<any>[] = logsProvider?.getLogs() || [];
+  const logHandler = (l: Execution<string>) => {
+    executionLogs.push(l);
+    logsProvider?.saveLog(l);
+  };
+
+  const functionsDefs: ProcedureBuilderDef[] = [];
+  const llmFunction = createFn(
+    undefined,
+    undefined,
+    logHandler,
+    (def: ProcedureBuilderDef) => {
+      functionsDefs.push(def);
+    }
+  );
+
+  return {
+    registry: {
+      executionLogs,
+      functionsDefs,
+      evaluateFn: (idx, args, respCallback) => {
+        const fnDef = functionsDefs.find((d) => d.id === idx);
+        if (!fnDef) {
+          throw new Error('Function not found');
+        }
+        return createFn(
+          fnDef,
+          (l) => {
+            respCallback && respCallback(l);
+          },
+          logHandler
+        ).run(args);
+      },
+      evaluateDataset: (idx, respCallback) => {
+        const fnDef = functionsDefs.find((d) => d.id === idx);
+        if (!fnDef) {
+          throw new Error('Function not found');
+        }
+        return createFn(
+          fnDef,
+          (l) => {
+            respCallback && respCallback(l);
+          },
+          logHandler
+        ).runDataset();
+      },
+    },
+    llmFunction,
+  };
+};

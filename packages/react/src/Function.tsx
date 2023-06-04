@@ -13,6 +13,7 @@ import {
   DocumentWithoutInput,
   Execution,
   createFn,
+  Registry,
 } from 'llm-functions-ts';
 import * as Form from '@radix-ui/react-form';
 import { parseFString } from 'llm-functions-ts';
@@ -59,8 +60,8 @@ export const Button: React.FC<
 export type FunctionProps = {
   logs?: Execution<any>[];
   aiFunction: ProcedureBuilderDef;
-  evaluateDataset?: (idx: string) => Promise<Execution<any>[]>;
-  evaluateFn?: (idx: string, args: FunctionArgs) => Promise<Execution<any>>;
+  evaluateDataset?: Registry['evaluateDataset'];
+  evaluateFn?: Registry['evaluateFn'];
 } & Partial<Store>;
 
 export const Function: React.FC<FunctionProps> = ({
@@ -94,7 +95,15 @@ export const Function: React.FC<FunctionProps> = ({
     if (applyDataSet) {
     } else {
       const response = await (evaluateFn
-        ? evaluateFn(i, runtimeArgs).then((s) => s)
+        ? evaluateFn(i, runtimeArgs, (t) => {
+            setResponse((resp) => {
+              const r = resp?.find((d) => d.id === t.id);
+              if (r) {
+                return resp?.map((d) => (d.id === t.id ? t : d));
+              }
+              return [...(resp || []), t];
+            });
+          })
         : createFn(aiFunction, (t) => {
             setResponse((resp) => {
               const r = resp?.find((d) => d.id === t.id);
@@ -149,16 +158,18 @@ export const Function: React.FC<FunctionProps> = ({
       <div className="px-4 border-b border-neutral-800">
         <div className="py-4 w-full justify-center flex flex-col">
           <div className="flex justify-between">
-            <div className="flex gap-1 items-center">
-              <CommandLineIcon className="w-6 h-6 text-white" />
-              <div className="text-white text-lg">
-                {aiFunction.name || 'AI function'}
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-1 items-center">
+                <CommandLineIcon className="w-6 h-6 text-white" />
+                <div className="text-white text-lg">
+                  {aiFunction.name || 'AI function'}
+                </div>
+              </div>
+              <div className="text-neutral-500 text-sm">
+                {aiFunction.description}
               </div>
             </div>
-            <div className="text-neutral-500 text-sm">
-              {aiFunction.description}
-            </div>
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <label className="text-sm text-neutral-500" htmlFor="table-view">
                 JSON view
               </label>
@@ -207,7 +218,7 @@ export const Function: React.FC<FunctionProps> = ({
               </div>
             </div>
             {/* VARIABLES */}
-            {inputVariables.map((d, i) => (
+            {inputVariables.map((d) => (
               <FormField
                 label={d.name}
                 control={

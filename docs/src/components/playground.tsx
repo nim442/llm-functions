@@ -1,11 +1,11 @@
 "use client";
 import { assertAiFn } from "llm-functions-ts";
 import "@llm-functions/react/index.css";
-import { examples } from "./examples";
+import { registry } from "./examples";
 import { FunctionStore, Main } from "@llm-functions/react";
 import { useTheme } from "nextra-theme-docs";
 import { useEffect, useState } from "react";
-import { exampleLogs } from "./exampleLogs";
+
 
 const Playground: React.FC = () => {
   const { setTheme } = useTheme();
@@ -18,12 +18,11 @@ const Playground: React.FC = () => {
   return (
     <main className="flex h-screen bg-white">
       <Main
-        logs={exampleLogs}
+        registry={registry}
         selectedTab={selectedTab}
         setSelectedTab={setSelectedTab}
         setSelectedFunctionId={setId}
         functionId={id}
-        aiFunctions={examples.map((e) => assertAiFn(e).__internal_def)}
       />
     </main>
   );

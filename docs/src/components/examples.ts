@@ -1,14 +1,27 @@
 import { z } from "zod";
-import { llmFunction } from "llm-functions-ts";
+import { initLLmFunction } from "llm-functions-ts";
 
-export const askInvoiceOrQuotesQuestion = llmFunction
-  .output(z.object({ question: z.string().nullable() }))
-  .instructions(
-    `Answer the following question based on the above invoice.csv.
-    {question}`
-  )
-  .dataset([{ instructions: { question: "s" } }])
-  .create();
+const { llmFunction, registry } = initLLmFunction({
+  saveLog: (e) => {
+    if (typeof window !== "undefined") {
+      const prevLogs =
+        JSON.parse(localStorage?.getItem("llm-functions-logs") || "null") || [];
+      localStorage?.setItem(
+        "llm-functions-logs",
+        JSON.stringify([...prevLogs, e])
+      );
+    }
+  },
+  getLogs: () => {
+    if (typeof window !== "undefined") {
+      return (
+        JSON.parse(localStorage?.getItem("llm-functions-logs") || "null") || []
+      );
+    } else {
+      return [];
+    }
+  },
+});
 
 export const invoiceFromPdf = llmFunction
   .name("Invoice from PDF")
@@ -93,87 +106,17 @@ const getAnEmail = llmFunction
   .name("Get an email")
   .instructions("What's a random website of a caterer.")
   .output(z.object({ websiteUrl: z.string() }))
-  .map((s) => ({ documents: [s.websiteUrl] }))
+  .map((s) => {
+    return { documents: [s.websiteUrl] satisfies [string] };
+  })
   .sequence(scrapeSite)
   .create();
 
-const generateCountryNames = llmFunction
-  .name("A function that generates country names")
-  .instructions(
-    "Generate countries names that start with {letter}.If the country doesn't exist, make some up"
-  )
-  .output(z.object({ countryNames: z.array(z.string()) }))
+const poem = llmFunction
+  .withModelParams({ temperature: 0.8 })
+  .name("Poet")
+  .instructions("Write a poem")
+  .output(z.object({ poem: z.string() }))
   .create();
 
-const simple = llmFunction
-  .name("A very simple function")
-  .instructions("What kind of joke is this?\n{joke}")
-  .output(z.object({ joke: z.string() }))
-  .create();
-const simple3 = llmFunction
-  .withModelParams({ temperature: 0.8, topP: 0.4 })
-  .name("Band name generator")
-  .instructions(
-    `Generate band names for my new band based on the genre {genre}`
-  )
-  .output(
-    z.array(
-      z.object({
-        bandName: z.string(),
-        genre: z.enum(["rock", "pop", "rap"]),
-        albumName: z
-          .array(z.string())
-          .describe("Their top charting album names"),
-      })
-    )
-  )
-  .create();
-
-const simple4 = llmFunction
-  .name("Summarize site")
-  .document({ type: "url" })
-  .instructions(
-    `Create an ad for this website. THe target demographic is pirates`
-  )
-  .output(
-    z.array(
-      z.object({
-        adCopy: z.string(),
-      })
-    )
-  )
-  .create();
-
-const titlesForAgenda = llmFunction
-  .name("Alliterative titles")
-  .withModelParams({ modelName: "text-davinci-003", maxTokens: 500 })
-  .instructions(
-    `I want to create an agenda slide based on the agenda data. The titles are alliterative
-{agendaData}`
-  )
-  .output(
-    z.array(
-      z.object({
-        time: z.string(),
-        title: z.string().describe("The title is alliterative"),
-      })
-    )
-  )
-  .dataset([
-    { instructions: { agendaData: "A" } },
-    { instructions: { agendaData: "B" } },
-    { instructions: { agendaData: "C" } },
-  ])
-  .create();
-
-export const examples = [
-  titlesForAgenda,
-  simple4,
-  simple,
-  simple3,
-  generateCountryNames,
-  getAnEmail,
-  scrapeSite,
-  invoiceFromPdf,
-  askInvoiceOrQuotesQuestion,
-];
+export { registry };
