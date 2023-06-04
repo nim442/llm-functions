@@ -22,7 +22,7 @@ import { useState } from 'react';
 
 import { DocumentUploader } from './DocumentUploader';
 
-import TraceComponent from './Trace';
+import ExecutionDisplay from './ExecutionDisplay';
 
 import classNames from 'classnames';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -79,7 +79,8 @@ export const Function: React.FC<FunctionProps> = ({
   }[];
 
   const [loading, setLoading] = useState<boolean>(false);
-  const [response, setResponse] = useState<Execution<any>[]>();
+  const [response, setResponse] = useState<Execution<any>>();
+  const [dataset, setDataset] = useState<Execution<any>[]>();
 
   const [runtimeArgs, setRuntimeArgs] = useState<FunctionArgs>({});
   const [applyDataSet] = useState(false);
@@ -94,32 +95,14 @@ export const Function: React.FC<FunctionProps> = ({
     e.preventDefault();
     const response = await (evaluateFn
       ? evaluateFn(i, runtimeArgs, (t) => {
-          setResponse((resp) => {
-            const r = resp?.find((d) => d.id === t.id);
-            if (r) {
-              return resp?.map((d) => (d.id === t.id ? t : d));
-            }
-            return [...(resp || []), t];
-          });
+          setResponse(t);
         })
       : createFn(aiFunction, (t) => {
-          setResponse((resp) => {
-            const r = resp?.find((d) => d.id === t.id);
-            if (r) {
-              return resp?.map((d) => (d.id === t.id ? t : d));
-            }
-            return [...(resp || []), t];
-          });
+          setResponse(t);
         }).run(runtimeArgs));
 
     setLoading(false);
-    setResponse((resp) => {
-      const r = resp?.find((d) => d.id === response.id);
-      if (r) {
-        return resp?.map((d) => (d.id === response.id ? response : d));
-      }
-      return [...(resp || []), response];
-    });
+    setResponse(response);
   };
   const enableTableView = useInternalStore((s) => s.enableTableView);
   const toggleEnableTableView = useInternalStore(
@@ -128,11 +111,11 @@ export const Function: React.FC<FunctionProps> = ({
   const handleEvaluateDatasetClick = async () => {
     if (evaluateDataset) {
       const response = await evaluateDataset(id);
-      setResponse(response);
+      setDataset(response);
     } else {
       setLoading(true);
       const response = await createFn(aiFunction, (t) => {
-        setResponse((resp) => {
+        setDataset((resp) => {
           const r = resp?.find((d) => d.id === t.id);
           if (r) {
             return resp?.map((d) => (d.id === t.id ? t : d));
@@ -141,7 +124,7 @@ export const Function: React.FC<FunctionProps> = ({
         });
       }).runDataset();
 
-      setResponse(response);
+      setDataset(response);
       setLoading(false);
     }
   };
@@ -306,7 +289,7 @@ export const Function: React.FC<FunctionProps> = ({
             </span>
           </Button>
         </Form.Root>
-        {response && <TraceComponent data={response} />}
+        {response && <ExecutionDisplay key={response.id} data={response} />}
       </Tabs.Content>
       <Tabs.Content
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
@@ -334,7 +317,7 @@ export const Function: React.FC<FunctionProps> = ({
                 </span>
               </Button>
             </div>
-            <LogsTable data={response} />
+            {dataset && <LogsTable data={dataset} />}
           </div>
         ) : (
           <div className=" text-white font-semibold flex items-center justify-center h-full w-full">

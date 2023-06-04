@@ -107,7 +107,7 @@ const getAnEmail = llmFunction
   .instructions("What's a random website of a caterer.")
   .output(z.object({ websiteUrl: z.string() }))
   .map((s) => {
-    return { documents: [s.websiteUrl] satisfies [string] };
+    return { documents: ['https://www.cateringbyseasons.com/'] satisfies [string] };
   })
   .sequence(scrapeSite)
   .create();
