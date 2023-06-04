@@ -92,36 +92,34 @@ export const Function: React.FC<FunctionProps> = ({
     i: string
   ) => {
     e.preventDefault();
-    if (applyDataSet) {
-    } else {
-      const response = await (evaluateFn
-        ? evaluateFn(i, runtimeArgs, (t) => {
-            setResponse((resp) => {
-              const r = resp?.find((d) => d.id === t.id);
-              if (r) {
-                return resp?.map((d) => (d.id === t.id ? t : d));
-              }
-              return [...(resp || []), t];
-            });
-          })
-        : createFn(aiFunction, (t) => {
-            setResponse((resp) => {
-              const r = resp?.find((d) => d.id === t.id);
-              if (r) {
-                return resp?.map((d) => (d.id === t.id ? t : d));
-              }
-              return [...(resp || []), t];
-            });
-          }).run(runtimeArgs));
-      setLoading(false);
-      setResponse((resp) => {
-        const r = resp?.find((d) => d.id === response.id);
-        if (r) {
-          return resp?.map((d) => (d.id === response.id ? response : d));
-        }
-        return [...(resp || []), response];
-      });
-    }
+    const response = await (evaluateFn
+      ? evaluateFn(i, runtimeArgs, (t) => {
+          setResponse((resp) => {
+            const r = resp?.find((d) => d.id === t.id);
+            if (r) {
+              return resp?.map((d) => (d.id === t.id ? t : d));
+            }
+            return [...(resp || []), t];
+          });
+        })
+      : createFn(aiFunction, (t) => {
+          setResponse((resp) => {
+            const r = resp?.find((d) => d.id === t.id);
+            if (r) {
+              return resp?.map((d) => (d.id === t.id ? t : d));
+            }
+            return [...(resp || []), t];
+          });
+        }).run(runtimeArgs));
+
+    setLoading(false);
+    setResponse((resp) => {
+      const r = resp?.find((d) => d.id === response.id);
+      if (r) {
+        return resp?.map((d) => (d.id === response.id ? response : d));
+      }
+      return [...(resp || []), response];
+    });
   };
   const enableTableView = useInternalStore((s) => s.enableTableView);
   const toggleEnableTableView = useInternalStore(

@@ -714,11 +714,11 @@ ${userPrompt}
           return fn(p);
         }, r.finalResponse);
         const execution = resolveExecution(r.id, finalResponse);
-        onExecutionFinished?.(execution);
+
         return execution;
       });
 
-      const sequenceResp = (def.sequences || []).reduce((p, aiFun) => {
+      const sequenceResp = await (def.sequences || []).reduce((p, aiFun) => {
         return p.then(({ finalResponse, id }) => {
           const functionDef =
             typeof aiFun === 'function' ? aiFun(finalResponse) : aiFun;
@@ -731,12 +731,12 @@ ${userPrompt}
             .run(finalResponse)
             .then((r) => {
               const execution = resolveExecution(id, r.finalResponse, r.trace);
-              onExecutionFinished?.(execution);
+
               return execution;
             });
         });
       }, resp);
-
+      onExecutionFinished?.(sequenceResp);
       return sequenceResp;
     },
   };
