@@ -1,12 +1,16 @@
 'use client';
 import { VariableIcon } from '@heroicons/react/24/outline';
 import * as Form from '@radix-ui/react-form';
+import classNames from 'classnames';
 
 export const Input: React.FC<
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
 > = (props) => (
   <textarea
-    className="resize p-2 bg-neutral-900 border rounded-md border-neutral-600 text-sm focus:outline-sky-400 focus-visible:outline-sky-400 focus-visible:outline-double max-w-full"
+    className={classNames(
+      'resize p-2 bg-neutral-900 border rounded-md border-neutral-600 text-sm focus:outline-sky-400 focus-visible:outline-sky-400 focus-visible:outline-double max-w-full',
+      'disabled:bg-neutral-800 disabled:border-none disabled:resize-none'
+    )}
     {...props}
   ></textarea>
 );
