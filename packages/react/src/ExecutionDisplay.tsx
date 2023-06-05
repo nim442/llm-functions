@@ -60,20 +60,6 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
                       <Inspector table={enableTableView} data={inputs} />
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 mb-2">
-                    <div className="text-neutral-500 text-xs">Output</div>
-                    <div className="text-white text-sm whitespace-break-spaces rounded">
-                      {finalResponse ? (
-                        <Inspector
-                          table={enableTableView}
-                          data={finalResponse}
-                        />
-                      ) : (
-                        <ArrowPathIcon className="animate-spin text-white w-4 h-4"></ArrowPathIcon>
-                      )}
-                    </div>
-                  </div>
-
                   <div className="text-neutral-500 text-xs mb-1">Actions</div>
                   <div className="flex flex-col gap-2">
                     {trace.map((t, tIdx) => {
@@ -137,6 +123,16 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 mb-2 p-4 border-t border-neutral-800">
+            <div className="text-neutral-500 text-xs">Output</div>
+            <div className="text-white text-sm whitespace-break-spaces rounded">
+              {finalResponse ? (
+                <Inspector table={enableTableView} data={finalResponse} />
+              ) : (
+                <ArrowPathIcon className="animate-spin text-white w-4 h-4"></ArrowPathIcon>
+              )}
             </div>
           </div>
         </div>
