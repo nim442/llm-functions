@@ -57,7 +57,7 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
                   <div className="flex flex-col gap-1 mb-2">
                     <div className="text-neutral-500 text-xs">Input</div>
                     <div className="text-white text-sm whitespace-break-spaces rounded">
-                      <Inspector table={enableTableView} data={inputs} />
+                      <Inspector expandLevel={10} table={enableTableView} data={inputs} />
                     </div>
                   </div>
                   <div className="text-neutral-500 text-xs mb-1">Actions</div>
@@ -129,7 +129,7 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
             <div className="text-neutral-500 text-xs">Output</div>
             <div className="text-white text-sm whitespace-break-spaces rounded">
               {finalResponse ? (
-                <Inspector table={enableTableView} data={finalResponse} />
+                <Inspector expandLevel={10} table={enableTableView}  data={finalResponse} />
               ) : (
                 <ArrowPathIcon className="animate-spin text-white w-4 h-4"></ArrowPathIcon>
               )}
