@@ -121,7 +121,7 @@ export type InferredFunctionArgs<TParams extends ProcedureParams> = Simplify<
     documents: Pipe<TParams['_documents'], [Tuples.Map<GetName>]> extends never
       ? undefined
       : Pipe<TParams['_documents'], [Tuples.Map<GetName>]>;
-  }> & { executionId?: string | undefined }
+  }>
 >;
 
 export type Log = {
@@ -247,7 +247,8 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   }>;
 
   run(
-    args: InferredFunctionArgs<TParams>
+    args: InferredFunctionArgs<TParams>,
+    execution?: Execution<any>
   ): Promise<Execution<TParams['_output']>>;
   runDataset(): Promise<Execution<TParams['_output']>[]>;
 }
@@ -258,7 +259,6 @@ const getApiKeyFromLocalStorage = () => {
 };
 export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
-  executions?: Record<string, Execution<any>[]>,
   onExecutionUpdate?: (
     execution: Execution<ProcedureParams['_output']>
   ) => void,
@@ -266,16 +266,15 @@ export type createFn = <TParams extends ProcedureParams>(
 ) => ProcedureBuilder<TParams>;
 
 export const createFn: createFn = (initDef, ...args) => {
-  let [executions = {}] = args;
+  let execution: Execution<any> | undefined;
 
-  const [, onExecutionUpdate, onCreated] = args;
+  const [onExecutionUpdate, onCreated] = args;
   const def = {
     model: {
       modelName: 'gpt-3.5-turbo',
       temperature: 0.7,
       maxTokens: -1,
     },
-    executions: [],
     ...initDef,
   };
   const getOpenAiModel = () =>
@@ -390,46 +389,48 @@ PROMPT:"""
     const response = await getOpenAiModel().call(prompt);
     return { response, prompt, traceId };
   };
-  const createExecution = (args: FunctionArgs) => {
-    const id = nanoid.nanoid();
-    executions[def.id || '']?.push({
-      id,
-      trace: [],
-      inputs: args,
-      functionDef: def,
-    });
-    return id;
+  const createExecution = (args: FunctionArgs, _execution?: Execution<any>) => {
+    if (_execution) {
+      execution = _execution;
+      return execution.id;
+    } else {
+      const id = nanoid.nanoid();
+      execution = {
+        id,
+        trace: [],
+        inputs: args,
+        functionDef: def,
+      };
+      return id;
+    }
   };
   const resolveExecution = (
     executionId: string,
     finalResponse: any,
     trace: Trace = []
   ) => {
-    executions[def.id || ''] = executions[def.id || '']?.map((e) =>
-      e.id === executionId
-        ? { ...e, finalResponse, trace: [...e.trace, ...trace] }
-        : e
-    ) as Execution<any>[];
-
-    const execution = executions[def.id || '']?.find(
-      (e) => e.id === executionId
-    );
-
     if (!execution) {
       throw new Error('Execution not found');
     }
+    execution = {
+      ...execution,
+      finalResponse,
+      trace: [...execution.trace, ...trace],
+    };
+
     return execution;
   };
 
   const createTrace = (executionId: string, action: DOmit<Action, 'id'>) => {
     const id = nanoid.nanoid();
     const actionWithId = { ...action, id };
-    executions[def.id || ''] = executions[def.id || ''].map((e) =>
-      e.id === executionId ? { ...e, trace: [...e.trace, actionWithId] } : e
-    ) as Execution<any>[];
-    const execution = executions[def.id || '']?.find(
-      (e) => e.id === executionId
-    );
+    if (!execution) {
+      throw new Error('Execution not found');
+    }
+    execution = {
+      ...execution,
+      trace: [...execution.trace, actionWithId],
+    };
 
     if (onExecutionUpdate && execution) {
       onExecutionUpdate(execution);
@@ -437,10 +438,15 @@ PROMPT:"""
     return id;
   };
   const updateTrace = (id: string, action: Partial<Action>) => {
-    executions[def.id || ''] = executions[def.id || '']?.map((e) => ({
-      ...e,
-      trace: e.trace.map((t) => (t.id === id ? { ...t, ...action } : t)),
-    })) as Execution<any>[];
+    if (!execution) {
+      throw new Error('Execution not found');
+    }
+    execution = {
+      ...execution,
+      trace: execution.trace.map((t) =>
+        t.id === id ? { ...t, ...action } : t
+      ),
+    } as Execution<any>;
   };
 
   const fixZodOutputRecursive = async <T extends z.Schema>(
@@ -520,18 +526,16 @@ PROMPT:"""
       );
     }
   };
-  const run = async (arg: FunctionArgs): Promise<Execution<any>> => {
+  const run = async (
+    arg: FunctionArgs,
+    execution?: Execution<any>
+  ): Promise<Execution<any>> => {
     const {
       instructions,
       documents: docs,
       query: queryArg,
     } = arg as FunctionArgs;
-
-    const executionId =
-      arg.executionId &&
-      executions[def.id || ''].find((e) => e.id === arg.executionId)
-        ? arg.executionId
-        : createExecution(arg);
+    const executionId = createExecution(arg, execution);
 
     async function getQueryDoc() {
       if (queryArg && def.query) {
@@ -725,8 +729,8 @@ ${userPrompt}
       }
       return Promise.all(dataset.map((d: any) => this.run(d)));
     },
-    run: async (runtimeArgs) => {
-      const resp = await run(runtimeArgs as FunctionArgs).then(
+    run: async (runtimeArgs, _execution) => {
+      const resp = await run(runtimeArgs as FunctionArgs, _execution).then(
         async (firstResponse) => {
           const mapFns = def.mapFns || [];
           const finalResponse = await mapFns.reduce(async (_p, fn) => {
@@ -739,17 +743,11 @@ ${userPrompt}
                 functionDef,
                 input: p.finalResponse,
               });
-
-              return createFn(functionDef, ...args)
-                .run({ ...p.finalResponse, executionId: p.id })
-                .then((r) => {
-                  const execution = resolveExecution(
-                    p.id,
-                    r.finalResponse,
-                    r.trace
-                  );
-                  return execution;
-                });
+              debugger;
+              return createFn(functionDef, ...args).run(
+                { ...p.finalResponse },
+                execution
+              );
             } else {
               const appliedMap = await Promise.resolve(
                 fn.apply({ test: 'id' }, p.finalResponse)
@@ -819,7 +817,6 @@ export const initLLmFunction = (logsProvider?: {
   const functionsDefs: ProcedureBuilderDef[] = [];
   const llmFunction = createFn(
     undefined,
-    executions,
     undefined,
     (def: ProcedureBuilderDef) => {
       functionsDefs.push(def);
@@ -837,7 +834,7 @@ export const initLLmFunction = (logsProvider?: {
           throw new Error('Function not found');
         }
 
-        const resp = createFn(fnDef, executions, (l) => {
+        const resp = createFn(fnDef, (l) => {
           respCallback && respCallback(l);
         }).run(args);
         resp.then(logHandler);
@@ -848,7 +845,7 @@ export const initLLmFunction = (logsProvider?: {
         if (!fnDef) {
           throw new Error('Function not found');
         }
-        const resp = createFn(fnDef, executions, (l) => {
+        const resp = createFn(fnDef, (l) => {
           respCallback && respCallback(l);
         }).runDataset();
         resp.then((r) => r.forEach(logHandler));
