@@ -1,5 +1,5 @@
 "use client";
-import { assertAiFn } from "llm-functions-ts";
+
 import "@llm-functions/react/index.css";
 import { registry } from "./examples";
 import { FunctionStore, Main } from "@llm-functions/react";
