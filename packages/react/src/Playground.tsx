@@ -24,15 +24,15 @@ import { Instructions } from './Instructions';
 import { useState } from 'react';
 import { vs2015 as theme } from 'react-syntax-highlighter/dist/cjs/styles/hljs';
 export const Playground: React.FC<{
-  aiFunction: ProcedureBuilderDef;
+  functionDef: ProcedureBuilderDef;
   readonlyProps?: { runtimeArgs: FunctionArgs; execution: Execution<any> };
   evaluateFn?: Registry['evaluateFn'];
-}> = ({ aiFunction, evaluateFn, readonlyProps }) => {
+}> = ({ functionDef, evaluateFn, readonlyProps }) => {
   const isReadOnly = Boolean(readonlyProps);
 
-  const id = aiFunction.id;
+  const id = functionDef.id;
   if (!id) return <>'Missing id'</>;
-  const input = parseFString(aiFunction.instructions || '');
+  const input = parseFString(functionDef.instructions || '');
   const inputVariables = input.filter((d) => d.type == 'variable') as {
     type: 'variable';
     name: string;
@@ -57,7 +57,7 @@ export const Playground: React.FC<{
       ? evaluateFn(i, runtimeArgs, (t) => {
           setResponse(t);
         })
-      : createFn(aiFunction, [], (t) => {
+      : createFn(functionDef, [], (t) => {
           setResponse(t);
         }).run(runtimeArgs));
 
@@ -73,11 +73,11 @@ export const Playground: React.FC<{
           <div className="flex gap-2">
             <div className="text-xs  bg-neutral-800 border-[0.5px] border-neutral-700 rounded flex gap-1 items-center p-2 w-fit">
               <CpuChipIcon className="w-5 h-5"></CpuChipIcon>
-              {aiFunction.model?.modelName}
+              {functionDef.model?.modelName}
             </div>
             <div className="text-xs  bg-neutral-800 border-[0.5px] border-neutral-700 rounded flex gap-1 items-center p-2 w-fit">
               <FireIcon className="w-5 h-5" />
-              {aiFunction.model?.temperature}
+              {functionDef.model?.temperature}
             </div>
           </div>
           {/* VARIABLES */}
@@ -102,7 +102,7 @@ export const Playground: React.FC<{
             />
           ))}
 
-          {aiFunction.query?.queryInput && (
+          {functionDef.query?.queryInput && (
             <FormField
               label="query"
               control={
@@ -120,15 +120,15 @@ export const Playground: React.FC<{
             />
           )}
           <div>
-            {aiFunction.documents && (
+            {functionDef.documents && (
               <DocumentUploader
                 runtimeArgs={runtimeArgs}
                 setRuntimeArgs={setRuntimeArgs}
-                documents={aiFunction.documents as DocumentWithoutInput[]}
+                documents={functionDef.documents as DocumentWithoutInput[]}
               ></DocumentUploader>
             )}
           </div>
-          {aiFunction.instructions && (
+          {functionDef.instructions && (
             <div className="flex gap-1 flex-col">
               <div className="text-sm text-neutral-500">Instructions</div>
 
@@ -149,7 +149,7 @@ export const Playground: React.FC<{
               )}
             >
               <SyntaxHighlighter style={theme} language="typescript">
-                {aiFunction.tsOutputString || 'string'}
+                {functionDef.tsOutputString || 'string'}
               </SyntaxHighlighter>
             </div>
           </div>

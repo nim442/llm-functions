@@ -16,15 +16,16 @@ export type Props = {
 
 export const Main: React.FC<Props> = ({
   registry: {
-    functionsDefs: _aiFunctions,
+    functionsDefs: _functionDefs,
     executionLogs: logs,
     evaluateFn,
     evaluateDataset,
+    logsProvider,
   },
   ...props
 }) => {
-  const aiFunctions = mapValues(
-    groupBy(_aiFunctions, (d) => d.id),
+  const functionDefs = mapValues(
+    groupBy(_functionDefs, (d) => d.id),
     (d) => d[0]
   );
 
@@ -38,7 +39,7 @@ export const Main: React.FC<Props> = ({
       <div className="p-4 border-r border-neutral-800 w-64">
         <div className="flex gap-2 flex-col">
           <div className="text-sm text-white mb-1">Functions</div>
-          {Object.values(aiFunctions).map((d, i) => (
+          {Object.values(functionDefs).map((d, i) => (
             <div
               key={i}
               className={classNames(
@@ -67,9 +68,10 @@ export const Main: React.FC<Props> = ({
           logs={logs.filter((d) =>
             d.functionsExecuted.find((e) => e.functionDef.id === index)
           )}
-          aiFunction={aiFunctions[index]}
+          functionDef={functionDefs[index]}
           evaluateDataset={evaluateDataset}
           evaluateFn={evaluateFn}
+          getLogs={logsProvider.getLogs}
           {...props}
         />
       ) : (

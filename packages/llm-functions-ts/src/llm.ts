@@ -820,8 +820,13 @@ export const safeParseAiFn = <T>(fn: T): AiFunction<T> | undefined => {
 
 export const llmFunction = createFn();
 
+type LogsProvider = {
+  getLogs: () => Execution<any>[];
+  saveLog: (exec: Execution<any>) => void;
+};
 export type Registry = {
   executionLogs: Execution<any>[];
+  logsProvider?: LogsProvider;
   functionsDefs: ProcedureBuilderDef[];
   evaluateDataset?: (
     idx: string,
@@ -834,10 +839,9 @@ export type Registry = {
   ) => Promise<Execution<any>>;
 };
 
-export const initLLmFunction = (logsProvider?: {
-  getLogs: () => Execution<any>[];
-  saveLog: (exec: Execution<any>) => void;
-}): {
+export const initLLmFunction = (
+  logsProvider?: LogsProvider
+): {
   registry: Registry;
   llmFunction: ProcedureBuilder<ProcedureParams>;
 } => {
@@ -879,6 +883,7 @@ export const initLLmFunction = (logsProvider?: {
   return {
     registry: {
       executionLogs,
+      logsProvider: logsProvider,
       functionsDefs,
       evaluateFn: async (idx, args, respCallback) => {
         const fnDef = functionsDefs.find((d) => d.id === idx);

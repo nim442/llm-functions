@@ -25,7 +25,6 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
       dataUrlReader.readAsDataURL(file);
       dataUrlReader.onloadend = () => {
         if (dataUrlReader.result) {
-          console.log(dataUrlReader.result);
           setRuntimeArgs({
             ...runtimeArgs,
             documents: [

@@ -45,20 +45,20 @@ export const Button: React.FC<
 
 export type FunctionProps = {
   logs?: Execution<any>[];
-  aiFunction: ProcedureBuilderDef;
+  functionDef: ProcedureBuilderDef;
   evaluateDataset?: Registry['evaluateDataset'];
   evaluateFn?: Registry['evaluateFn'];
+  getLogs?: () => Execution<any>[];
 } & Partial<Store>;
 
 export const Function: React.FC<FunctionProps> = ({
-  aiFunction,
+  functionDef,
   evaluateDataset,
   evaluateFn,
   ...props
 }) => {
-  const id = aiFunction.id;
+  const id = functionDef.id;
   if (!id) return <>'Missing id'</>;
-  const input = parseFString(aiFunction.instructions || '');
 
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -79,7 +79,7 @@ export const Function: React.FC<FunctionProps> = ({
       setDataset(response);
     } else {
       setLoading(true);
-      const response = await createFn(aiFunction, [], (t) => {
+      const response = await createFn(functionDef, [], (t) => {
         setDataset((resp) => {
           const r = resp?.find((d) => d.id === t.id);
           if (r) {
@@ -108,11 +108,11 @@ export const Function: React.FC<FunctionProps> = ({
               <div className="flex gap-1 items-center">
                 <CommandLineIcon className="w-6 h-6 text-white" />
                 <div className="text-white text-lg">
-                  {aiFunction.name || 'AI function'}
+                  {functionDef.name || 'AI function'}
                 </div>
               </div>
               <div className="text-neutral-500 text-sm">
-                {aiFunction.description}
+                {functionDef.description}
               </div>
             </div>
             <div className="flex gap-2">
@@ -150,13 +150,13 @@ export const Function: React.FC<FunctionProps> = ({
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
         value={'PLAYGROUND' satisfies Store['selectedTab']}
       >
-        <Playground aiFunction={aiFunction} evaluateFn={evaluateFn} />
+        <Playground functionDef={functionDef} evaluateFn={evaluateFn} />
       </Tabs.Content>
       <Tabs.Content
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
         value={'DATASET' satisfies Store['selectedTab']}
       >
-        {aiFunction.dataset ? (
+        {functionDef.dataset ? (
           <div className="w-full">
             <div className="flex justify-between p-4 border-b border-neutral-800">
               <div className="text-white">
@@ -178,7 +178,7 @@ export const Function: React.FC<FunctionProps> = ({
                 </span>
               </Button>
             </div>
-            {dataset && <LogsTable data={dataset} />}
+            {dataset && <LogsTable data={dataset} getLogs={props.getLogs} />}
           </div>
         ) : (
           <div className=" text-white font-semibold flex items-center justify-center h-full w-full">
@@ -190,7 +190,7 @@ export const Function: React.FC<FunctionProps> = ({
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
         value={'LOGS' satisfies Store['selectedTab']}
       >
-        <LogsTable data={props.logs} />
+        <LogsTable data={props.logs} getLogs={props.getLogs} />
       </Tabs.Content>
     </Tabs.Root>
   );
