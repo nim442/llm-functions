@@ -23,20 +23,21 @@ export const LogsTable: React.FC<{
     >
       <div className="w-full">
         <div className="divide-y divide-neutral-800">
-          {data.map((d, i) => (
-            <div key={i} className="flex gap-4 px-4 py-4">
+          {data.map((_d, i) => {
+            const d = _d.functionsExecuted[0]
+            return <div key={i} className="flex gap-4 px-4 py-4">
               <div className="flex-1">
                 <div className="text-sm font-semibold text-white">
                   Evaluation
                 </div>
-                <div className="text-neutral-500 text-sm">{d.id}</div>
+                <div className="text-neutral-500 text-sm">{d.functionDef.id}</div>
                 <Dialog.Trigger asChild>
                   <button
                     onClick={() => {
                       setFn({
                         functionDef: d.functionDef,
                         inputs: d.inputs,
-                        execution: d,
+                        execution: _d,
                       });
                     }}
                     className="text-neutral-300 text-sm underline"
@@ -61,8 +62,8 @@ export const LogsTable: React.FC<{
                   )}
                 </div>
               </div>
-            </div>
-          ))}
+            </div>;
+          })}
         </div>
       </div>
       <Dialog.Portal>

@@ -52,6 +52,7 @@
   "dependencies": {
     "@types/lodash": "^4.14.194",
     "@types/pdfjs-dist": "^2.10.378",
+    "immer": "latest",
     "cheerio": "^1.0.0-rc.12",
     "classnames": "^2.3.2",
     "hotscript": "^1.0.11",

@@ -59,37 +59,16 @@ export const Function: React.FC<FunctionProps> = ({
   const id = aiFunction.id;
   if (!id) return <>'Missing id'</>;
   const input = parseFString(aiFunction.instructions || '');
-  const inputVariables = input.filter((d) => d.type == 'variable') as {
-    type: 'variable';
-    name: string;
-  }[];
 
   const [loading, setLoading] = useState<boolean>(false);
-  const [response, setResponse] = useState<Execution<any>>();
+
   const [dataset, setDataset] = useState<Execution<any>[]>();
 
-  const [runtimeArgs, setRuntimeArgs] = useState<FunctionArgs>({});
-  const [applyDataSet] = useState(false);
   const selectedTab = useStore((s) => props.selectedTab || s.selectedTab);
   const setSelectedTab = useStore(
     (s) => props.setSelectedTab || s.setSelectedTab
   );
-  const generateResponse = async (
-    e: React.MouseEvent<HTMLButtonElement>,
-    i: string
-  ) => {
-    e.preventDefault();
-    const response = await (evaluateFn
-      ? evaluateFn(i, runtimeArgs, (t) => {
-          setResponse(t);
-        })
-      : createFn(aiFunction, [], (t) => {
-          setResponse(t);
-        }).run(runtimeArgs));
 
-    setLoading(false);
-    setResponse(response);
-  };
   const enableTableView = useInternalStore((s) => s.enableTableView);
   const toggleEnableTableView = useInternalStore(
     (s) => s.toggleEnableTableView

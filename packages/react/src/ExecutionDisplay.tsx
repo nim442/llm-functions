@@ -35,9 +35,9 @@ const ErrorState: React.FC<{ message: React.ReactNode }> = ({ message }) => {
   );
 };
 
-export const Component: React.FC<ExecutionDisplayProps> = ({
-  data: { trace, id, inputs, finalResponse },
-}) => {
+export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
+  const { inputs, finalResponse } = data.functionsExecuted[0];
+  const trace = data.functionsExecuted.map((d) => d.trace).flat();
   const [selectedAction, setSelectedAction] = useState<number>();
   const enableTableView = useInternalStore((s) => s.enableTableView);
   return (
@@ -46,18 +46,24 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
         <div className="flex flex-col h-full overflow-auto">
           <div className="flex flex-col h-full relative">
             <div className="flex flex-col gap-2 p-4 divide-y divide-neutral-800">
-              <div key={id} className="py-4">
+              <div className="py-4">
                 <div className="">
                   <div className="text-sm text-white mb-1 font-semibold w-full flex justify-between">
                     <span>
                       Evaluation{' '}
-                      <span className="text-neutral-500 text-xs">({id})</span>
+                      <span className="text-neutral-500 text-xs">
+                        ({data.id})
+                      </span>
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 mb-2">
                     <div className="text-neutral-500 text-xs">Input</div>
                     <div className="text-white text-sm whitespace-break-spaces rounded">
-                      <Inspector expandLevel={10} table={enableTableView} data={inputs} />
+                      <Inspector
+                        expandLevel={10}
+                        table={enableTableView}
+                        data={inputs}
+                      />
                     </div>
                   </div>
                   <div className="text-neutral-500 text-xs mb-1">Actions</div>
@@ -83,11 +89,11 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
                                       action="OpenAI call"
                                     />
                                   );
-                                case 'calling-another-function':
+                                case 'executing-function':
                                   return (
                                     <div className="flex flex-col gap-2">
                                       <div className=" text-xs font-semibold  text-neutral-500">
-                                        Calling next function in sequence
+                                        Executing function
                                       </div>
                                       <div className="text-white flex items-center text-sm gap-1">
                                         <CommandLineIcon className="w-4 h-4" />{' '}
@@ -129,7 +135,11 @@ export const Component: React.FC<ExecutionDisplayProps> = ({
             <div className="text-neutral-500 text-xs">Output</div>
             <div className="text-white text-sm whitespace-break-spaces rounded">
               {finalResponse ? (
-                <Inspector expandLevel={10} table={enableTableView}  data={finalResponse} />
+                <Inspector
+                  expandLevel={10}
+                  table={enableTableView}
+                  data={finalResponse}
+                />
               ) : (
                 <ArrowPathIcon className="animate-spin text-white w-4 h-4"></ArrowPathIcon>
               )}
@@ -231,7 +241,7 @@ function renderAction(t: Trace[0]): React.ReactElement {
           </div>
         </div>
       );
-    case 'calling-another-function':
+    case 'executing-function':
       return (
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 text-white">
