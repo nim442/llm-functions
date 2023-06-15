@@ -30,7 +30,11 @@ import { OpenAIInput } from 'langchain/dist/types/openai-types';
 import { BaseLLMParams } from 'langchain/dist/llms/base';
 import { cyrb53 } from './cyrb53';
 import { getUrl } from './documents/urlDocument';
-import { HumanChatMessage } from 'langchain/schema';
+import {
+  BaseChatMessage,
+  ChatMessage,
+  HumanChatMessage,
+} from 'langchain/schema';
 
 export type ParserZodEsque<TInput, TParsedInput> = {
   _input: TInput;
@@ -353,7 +357,8 @@ export const createFn: createFn = (initDef, ...args) => {
   const fixZodOutput = async (
     zodError: z.ZodError,
     object: z.infer<ReturnType<typeof json>>,
-    executionId: string
+    executionId: string,
+    chatMessages: BaseChatMessage[]
   ) => {
     const template = `ZOD ERROR:"""
 {zodError}
@@ -376,9 +381,8 @@ PROMPT:"""
       template: prompt,
       response: { type: 'loading' },
     });
-    const { text: response } = await getOpenAiModel().call([
-      new HumanChatMessage(prompt),
-    ]);
+    chatMessages.push(new HumanChatMessage(prompt));
+    const { text: response } = await getOpenAiModel().call(chatMessages);
     return { response, prompt, traceId };
   };
   const createExecution = (args: FunctionArgs, _executionId?: string) => {
@@ -463,6 +467,7 @@ PROMPT:"""
     template: string,
     traceId: string,
     executionId: string,
+    chatMessages: BaseChatMessage[],
     retries = 0
   ): Promise<z.infer<T>> => {
     if (retries > 5) {
@@ -498,7 +503,7 @@ PROMPT:"""
           response: zodResponse,
           prompt: zodTemplate,
           traceId: newTraceId,
-        } = await fixZodOutput(r.error, json.data, executionId);
+        } = await fixZodOutput(r.error, json.data, executionId, chatMessages);
 
         return fixZodOutputRecursive(
           zodSchema,
@@ -506,6 +511,7 @@ PROMPT:"""
           zodTemplate,
           newTraceId,
           executionId,
+          chatMessages,
           retries + 1
         );
       }
@@ -522,7 +528,7 @@ PROMPT:"""
         response: zodResponse,
         prompt: zodTemplate,
         traceId: newTraceId,
-      } = await fixZodOutput(json.error, response, executionId);
+      } = await fixZodOutput(json.error, response, executionId, chatMessages);
 
       return fixZodOutputRecursive(
         zodSchema,
@@ -530,6 +536,7 @@ PROMPT:"""
         zodTemplate,
         newTraceId,
         executionId,
+        chatMessages,
         retries + 1
       );
     }
@@ -630,9 +637,11 @@ ${userPrompt}
     });
 
     try {
-      const { text: response } = await getOpenAiModel().call([
-        new HumanChatMessage(zodTemplate),
-      ]);
+      const chatMessages = [new HumanChatMessage(zodTemplate)];
+      const aiMessage = await getOpenAiModel().call(chatMessages);
+      const response = aiMessage.text;
+
+      chatMessages.push(aiMessage);
 
       if (def.output) {
         return fixZodOutputRecursive(
@@ -640,7 +649,8 @@ ${userPrompt}
           response,
           zodTemplate,
           id,
-          executionId
+          executionId,
+          chatMessages
         );
       } else {
         updateTrace(id, {
