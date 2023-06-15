@@ -96,3 +96,8 @@ export const mergeOrUpdate = <O>(
 
   return res;
 };
+export const getApiKeyFromLocalStorage = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('OPENAI_API_KEY');
+  } else return undefined;
+};

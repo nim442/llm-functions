@@ -7,6 +7,7 @@ export const Input: React.FC<
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
 > = (props) => (
   <textarea
+    autoComplete="on"
     className={classNames(
       'resize p-2 bg-neutral-900 border rounded-md border-neutral-600 text-sm focus:outline-sky-400 focus-visible:outline-sky-400 focus-visible:outline-double max-w-full',
       'disabled:bg-neutral-800 disabled:border-none disabled:resize-none'

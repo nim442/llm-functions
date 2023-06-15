@@ -1,4 +1,5 @@
-import { OpenAI } from 'langchain/llms/openai';
+import { ChatOpenAI } from 'langchain/chat_models/openai';
+
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { produce } from 'immer';
 
@@ -7,17 +8,18 @@ import { load } from 'cheerio';
 import { z, ZodAny } from 'zod';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-
+import { Document } from './documents/document';
 import { json, stringToJSONSchema } from './jsonSchema';
 import {
   ExtractTemplateParams,
+  getApiKeyFromLocalStorage,
   interpolateFString,
   mergeOrUpdate,
 } from './utils';
 
 import * as pdfjs from 'pdfjs-dist';
 
-import _ from 'lodash';
+import _, { memoize } from 'lodash';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
 import * as nanoid from 'nanoid';
@@ -27,6 +29,8 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAIInput } from 'langchain/dist/types/openai-types';
 import { BaseLLMParams } from 'langchain/dist/llms/base';
 import { cyrb53 } from './cyrb53';
+import { getUrl } from './documents/urlDocument';
+import { HumanChatMessage } from 'langchain/schema';
 
 export type ParserZodEsque<TInput, TParsedInput> = {
   _input: TInput;
@@ -61,10 +65,6 @@ export interface ProcedureParams<
    */
   _query?: Query;
 }
-export type Document =
-  | { type: 'pdf'; input: Buffer }
-  | { type: 'text'; input: string }
-  | { type: 'url'; input: string; chunkingQuery?: string };
 
 export type DocumentWithoutInput = DOmit<Document, 'input'>;
 
@@ -73,10 +73,11 @@ export type Execution<T> = {
   functionsExecuted: {
     inputs: FunctionArgs;
     trace: Trace;
-    finalResponse?: FinalResponse<T>;
+    finalResponse?: T;
     functionDef: ProcedureBuilderDef;
   }[];
-  finalResponse?: FinalResponse<T>;
+  finalResponse?: T;
+  verified?: boolean;
 };
 
 type Sequence<T = unknown> =
@@ -89,13 +90,13 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   description?: string;
   output?: Parser;
   tsOutputString?: string;
-  model?: Partial<Simplify<OpenAIInput & BaseLLMParams>>;
+  model?: ConstructorParameters<typeof ChatOpenAI>[number];
   documents?: DocumentWithoutInput[];
   query?: { queryInput: boolean; fn: QueryFn<I, O> };
   instructions?: string;
   dataset?: FunctionArgs[];
-
   mapFns?: (((a: any) => any) | AiFunction<any>)[];
+  verify?: (a: Execution<any>, b: FunctionArgs) => boolean;
   sequences?: Sequence[];
 };
 interface GetName extends Fn {
@@ -239,7 +240,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   map: <Input extends TParams['_output'], Output>(
     aiFn: (
       args: Input,
-      execution: Execution<any>,
+      execution: Execution<Input>,
       inputs: InferredFunctionArgs<TParams>
     ) => Output | Promise<Output>
   ) => //@ts-ignore
@@ -249,7 +250,12 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
     _documents: TParams['_documents'];
     _query: TParams['_query'];
   }>;
-
+  verify: (
+    aiFn: (
+      execution: Execution<TParams['_output']>,
+      inputs: InferredFunctionArgs<TParams>
+    ) => boolean
+  ) => ProcedureBuilder<TParams>;
   sequence: <Input extends TParams['_output'], Output>(
     aiFn: (args: Input) => Promise<Output>
   ) => //@ts-ignore
@@ -266,11 +272,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   ): Promise<Execution<TParams['_output']>>;
   runDataset(): Promise<Execution<TParams['_output']>[]>;
 }
-const getApiKeyFromLocalStorage = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('OPENAI_API_KEY');
-  } else return undefined;
-};
+
 export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
   onExecutionUpdate?: (
@@ -285,14 +287,14 @@ export const createFn: createFn = (initDef, ...args) => {
   const [onExecutionUpdate, onCreated] = args;
   const def = {
     model: {
-      modelName: 'gpt-3.5-turbo',
+      modelName: 'gpt-3.5-turbo-16k',
       temperature: 0.7,
       maxTokens: -1,
     },
     ...initDef,
   };
   const getOpenAiModel = () =>
-    new OpenAI({
+    new ChatOpenAI({
       ...def.model,
       openAIApiKey:
         process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
@@ -334,44 +336,18 @@ export const createFn: createFn = (initDef, ...args) => {
         return csv;
       case 'text':
         return document.input;
-      case 'url':
+      case 'url': {
         const id = createTrace(executionId, {
           action: 'get-document',
           input: document,
           response: { type: 'loading' },
         });
-        const url = document.input;
-        const urlHtml = await fetch(url, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-          },
-        }).then((r) => r.text());
-        const cleanedHtml = load(urlHtml).html();
-        const c = new RecursiveCharacterTextSplitter({ chunkSize: 2000 });
-        const openAIEmbeddings = new OpenAIEmbeddings({
-          openAIApiKey:
-            process.env.OPENAI_API_KEY ||
-            getApiKeyFromLocalStorage() ||
-            undefined,
-        });
-        const splitHtml = await c.createDocuments([cleanedHtml]);
-
-        const vectorStores = await MemoryVectorStore.fromDocuments(
-          splitHtml,
-          openAIEmbeddings
-        );
-        const similaritySearch = await vectorStores.similaritySearch(
-          document.chunkingQuery || query || ''
-        );
-
-        const search = similaritySearch.map((s) => s.pageContent).join('\n');
-
+        const doc = await getUrl(document, query);
         updateTrace(id, {
-          response: { type: 'success', output: search },
+          response: { type: 'success', output: doc },
         });
-
-        return search;
+        return doc;
+      }
     }
   };
   const fixZodOutput = async (
@@ -400,7 +376,9 @@ PROMPT:"""
       template: prompt,
       response: { type: 'loading' },
     });
-    const response = await getOpenAiModel().call(prompt);
+    const { text: response } = await getOpenAiModel().call([
+      new HumanChatMessage(prompt),
+    ]);
     return { response, prompt, traceId };
   };
   const createExecution = (args: FunctionArgs, _executionId?: string) => {
@@ -652,7 +630,9 @@ ${userPrompt}
     });
 
     try {
-      const response = await getOpenAiModel().call(zodTemplate);
+      const { text: response } = await getOpenAiModel().call([
+        new HumanChatMessage(zodTemplate),
+      ]);
 
       if (def.output) {
         return fixZodOutputRecursive(
@@ -764,6 +744,15 @@ ${userPrompt}
       }
       return Promise.all(dataset.map((d: any) => this.run(d)));
     },
+    verify(verifyFn) {
+      return createFn(
+        {
+          ...def,
+          verify: verifyFn as any,
+        },
+        ...args
+      );
+    },
     run: async (runtimeArgs, executionId) => {
       const resp = await run(runtimeArgs as FunctionArgs, executionId).then(
         async (firstResponse) => {
@@ -793,6 +782,7 @@ ${userPrompt}
           return finalResponse;
         }
       );
+
       return resp;
     },
   };
@@ -820,14 +810,14 @@ export const safeParseAiFn = <T>(fn: T): AiFunction<T> | undefined => {
 
 export const llmFunction = createFn();
 
-type LogsProvider = {
-  getLogs: () => Execution<any>[];
+export type LogsProvider = {
+  getLogs: () => Promise<Execution<any>[]>;
   saveLog: (exec: Execution<any>) => void;
 };
 export type Registry = {
   executionLogs: Execution<any>[];
   logsProvider?: LogsProvider;
-  functionsDefs: ProcedureBuilderDef[];
+  getFunctionsDefs: () => ProcedureBuilderDef[];
   evaluateDataset?: (
     idx: string,
     callback?: (ex: Execution<any>) => void
@@ -845,9 +835,11 @@ export const initLLmFunction = (
   registry: Registry;
   llmFunction: ProcedureBuilder<ProcedureParams>;
 } => {
-  let executionLogs: Execution<any>[] = logsProvider?.getLogs() || [];
+  let executionLogs: Execution<any>[] = [];
+  logsProvider?.getLogs().then((l) => (executionLogs = l));
   const logHandler = (l: Execution<string>) => {
     const existingLog = executionLogs.find((e) => e.id === l.id);
+
     if (!existingLog) {
       executionLogs.push(l);
       logsProvider?.saveLog(l);
@@ -872,31 +864,39 @@ export const initLLmFunction = (
   };
 
   const functionsDefs: ProcedureBuilderDef[] = [];
-  const llmFunction = createFn(
-    undefined,
-    logHandler,
-    (def: ProcedureBuilderDef) => {
-      functionsDefs.push(def);
-    }
-  );
+
+  const onCreate = (def: ProcedureBuilderDef) => {
+    functionsDefs.push(def);
+  };
+
+  const llmFunction = createFn({ id: 'test' }, logHandler, onCreate);
 
   return {
     registry: {
       executionLogs,
       logsProvider: logsProvider,
-      functionsDefs,
+      getFunctionsDefs: () => functionsDefs,
       evaluateFn: async (idx, args, respCallback) => {
         const fnDef = functionsDefs.find((d) => d.id === idx);
         if (!fnDef) {
           throw new Error('Function not found');
         }
 
-        const resp = await createFn(fnDef, (l) => {
-          logHandler(l);
-          respCallback && respCallback(l);
+        const _resp = await createFn(fnDef, (l) => {
+          const finalResp = logHandler(l);
+          respCallback && respCallback(finalResp);
         }).run(args);
 
-        return executionLogs.find((e) => e.id === resp.id) || resp;
+        const resp = logHandler(_resp);
+        const verified = fnDef.verify?.(resp, args as FunctionArgs);
+        const respWithVerified =
+          verified !== undefined ? { ...resp, verified } : resp;
+
+        const final = logHandler(respWithVerified);
+
+        respCallback && respCallback(final);
+
+        return executionLogs.find((e) => e.id === resp.id) || final;
       },
       evaluateDataset: (idx, respCallback) => {
         const fnDef = functionsDefs.find((d) => d.id === idx);
@@ -904,9 +904,10 @@ export const initLLmFunction = (
           throw new Error('Function not found');
         }
         const resp = createFn(fnDef, (l) => {
+          logHandler(l);
           respCallback && respCallback(l);
         }).runDataset();
-        resp.then((r) => r.forEach(logHandler));
+
         return resp;
       },
     },

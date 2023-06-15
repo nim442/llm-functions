@@ -8,6 +8,7 @@ import {
   Execution,
   createFn,
   Registry,
+  LogsProvider,
 } from 'llm-functions-ts';
 import { parseFString } from 'llm-functions-ts';
 import { useState } from 'react';
@@ -21,10 +22,11 @@ import { LogsTable } from './LogsTable';
 import * as Switch from '@radix-ui/react-switch';
 import { useInternalStore } from './internalStore';
 import { Playground } from './Playground';
+import { DatasetTable } from './DatasetTable';
 
 export const Button: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement>
-> = ({ className, ...props }) => {
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm' | 'md' }
+> = ({ className, size = 'md', ...props }) => {
   return (
     <div className={classNames(className, 'relative w-full group')}>
       <div
@@ -35,7 +37,8 @@ export const Button: React.FC<
       ></div>
       <button
         className={classNames(
-          'button bg-white text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative'
+          'button bg-white text-black font-semibold py-2 px-4 rounded w-full cursor-pointer z-10 relative',
+          size === 'sm' && '!text-xs'
         )}
         {...props}
       />
@@ -48,7 +51,7 @@ export type FunctionProps = {
   functionDef: ProcedureBuilderDef;
   evaluateDataset?: Registry['evaluateDataset'];
   evaluateFn?: Registry['evaluateFn'];
-  getLogs?: () => Execution<any>[];
+  getLogs?: LogsProvider['getLogs'];
 } & Partial<Store>;
 
 export const Function: React.FC<FunctionProps> = ({
@@ -77,20 +80,6 @@ export const Function: React.FC<FunctionProps> = ({
     if (evaluateDataset) {
       const response = await evaluateDataset(id);
       setDataset(response);
-    } else {
-      setLoading(true);
-      const response = await createFn(functionDef, [], (t) => {
-        setDataset((resp) => {
-          const r = resp?.find((d) => d.id === t.id);
-          if (r) {
-            return resp?.map((d) => (d.id === t.id ? t : d));
-          }
-          return [...(resp || []), t];
-        });
-      }).runDataset();
-
-      setDataset(response);
-      setLoading(false);
     }
   };
 
@@ -178,7 +167,11 @@ export const Function: React.FC<FunctionProps> = ({
                 </span>
               </Button>
             </div>
-            {dataset && <LogsTable data={dataset} getLogs={props.getLogs} />}
+            <DatasetTable
+              evaluateFn={evaluateFn}
+              functionDef={functionDef}
+              getLogs={props.getLogs}
+            />
           </div>
         ) : (
           <div className=" text-white font-semibold flex items-center justify-center h-full w-full">

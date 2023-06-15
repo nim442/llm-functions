@@ -36,8 +36,9 @@ const ErrorState: React.FC<{ message: React.ReactNode }> = ({ message }) => {
 };
 
 export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
-  const { inputs, finalResponse } = data.functionsExecuted[0];
+  const { inputs } = data.functionsExecuted[0];
   const trace = data.functionsExecuted.map((d) => d.trace).flat();
+  const finalResponse = data.finalResponse
   const [selectedAction, setSelectedAction] = useState<number>();
   const enableTableView = useInternalStore((s) => s.enableTableView);
   return (
@@ -72,11 +73,12 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
                       return (
                         <div
                           key={t.id}
-                          className={`flex rounded flex-col bg-neutral-800 roudned-xl p-2 cursor-pointer ${
-                            selectedAction === tIdx
-                              ? 'outline outline-sky-500'
-                              : ''
-                          }`}
+                          className={classNames(
+                            `flex rounded flex-col bg-neutral-800 roudned-xl p-2 cursor-pointer`,
+                            selectedAction === tIdx &&
+                              'shadow-xl shadow-blue-400/10 outline outline-blue-400',
+                            t.action !== 'executing-function' && 'ml-2'
+                          )}
                           onClick={() => setSelectedAction(tIdx)}
                         >
                           <div className="flex gap-1">
@@ -134,6 +136,13 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
           <div className="flex flex-col gap-1 mb-2 p-4 border-t border-neutral-800">
             <div className="text-neutral-500 text-xs">Output</div>
             <div className="text-white text-sm whitespace-break-spaces rounded">
+              {data.verified === true ? (
+                <div className="text-xs text-green-500">Verified</div>
+              ) : data.verified === false ? (
+                <div className="text-xs text-red-400">Failed verification</div>
+              ) : (
+                ''
+              )}
               {finalResponse ? (
                 <Inspector
                   expandLevel={10}
@@ -291,13 +300,40 @@ function renderAction(t: Trace[0]): React.ReactElement {
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
             <Parameters defaultOpen={true} heading={'Input'}>
-              <div>{t.input && JSON.stringify(t.input.input)}</div>
-              <div>
-                {t.input &&
-                  JSON.stringify(
-                    t.input.type === 'url' && t.input.chunkingQuery
-                  )}
-              </div>
+              {(() => {
+                switch (t.input.type) {
+                  case 'url':
+                    return (
+                      <div>
+                        <div className="text-sm whitespace-break-spaces">
+                          Url:{' '}
+                          <a
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            href={t.input.input}
+                          >
+                            {t.input.input}
+                          </a>
+                        </div>
+                        <div className="text-sm whitespace-break-spaces">
+                          Chunking Query:
+                          {t.input.chunkingQuery}
+                        </div>
+                        <div className="text-sm whitespace-break-spaces">
+                          Chunking size:
+                          {t.input.chunkSize || 2000}
+                        </div>
+                      </div>
+                    );
+                  case 'pdf':
+                  case 'text':
+                    return (
+                      <div>
+                        <div>{t.input && JSON.stringify(t.input.input)}</div>
+                      </div>
+                    );
+                }
+              })()}
             </Parameters>
             <Parameters defaultOpen={true} heading={'Response'}>
               {(() => {

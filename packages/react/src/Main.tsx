@@ -16,7 +16,7 @@ export type Props = {
 
 export const Main: React.FC<Props> = ({
   registry: {
-    functionsDefs: _functionDefs,
+    getFunctionsDefs,
     executionLogs: logs,
     evaluateFn,
     evaluateDataset,
@@ -25,7 +25,7 @@ export const Main: React.FC<Props> = ({
   ...props
 }) => {
   const functionDefs = mapValues(
-    groupBy(_functionDefs, (d) => d.id),
+    groupBy(getFunctionsDefs(), (d) => d.id),
     (d) => d[0]
   );
 
@@ -71,7 +71,7 @@ export const Main: React.FC<Props> = ({
           functionDef={functionDefs[index]}
           evaluateDataset={evaluateDataset}
           evaluateFn={evaluateFn}
-          getLogs={logsProvider.getLogs}
+          getLogs={logsProvider?.getLogs}
           {...props}
         />
       ) : (

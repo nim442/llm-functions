@@ -1,4 +1,9 @@
-import { Execution, FunctionArgs, ProcedureBuilderDef } from 'llm-functions-ts';
+import {
+  Execution,
+  FunctionArgs,
+  LogsProvider,
+  ProcedureBuilderDef,
+} from 'llm-functions-ts';
 import { Inspector } from './Inspector';
 import { useInternalStore } from './internalStore';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
@@ -9,7 +14,7 @@ import { useEffect, useState } from 'react';
 
 export const LogsTable: React.FC<{
   data?: Execution<any>[];
-  getLogs?: () => Execution<any>[];
+  getLogs?: LogsProvider['getLogs'];
 }> = ({ data = [], getLogs }) => {
   const [logs, setLogs] = useState(data);
   const enableTableView = useInternalStore((s) => s.enableTableView);
@@ -19,7 +24,7 @@ export const LogsTable: React.FC<{
     execution: Execution<any>;
   }>();
   useEffect(() => {
-    getLogs && setLogs(getLogs());
+    getLogs?.().then((l) => setLogs(l));
   }, []);
   return (
     <Dialog.Root
