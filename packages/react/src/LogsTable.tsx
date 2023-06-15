@@ -42,7 +42,7 @@ export const LogsTable: React.FC<{
                     Evaluation
                   </div>
                   <div className="text-neutral-500 text-sm">
-                    {d.functionDef.id}
+                    {_d.id}
                   </div>
                   <Dialog.Trigger asChild>
                     <button

@@ -74,6 +74,7 @@ export type DocumentWithoutInput = DOmit<Document, 'input'>;
 
 export type Execution<T> = {
   id: string;
+  createdAt: Date;
   functionsExecuted: {
     inputs: FunctionArgs;
     trace: Trace;
@@ -389,6 +390,7 @@ PROMPT:"""
     const id = _executionId || nanoid.nanoid();
     execution = {
       id,
+      createdAt: new Date(),
       functionsExecuted: [{ trace: [], inputs: args, functionDef: def }],
     };
     return id;

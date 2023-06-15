@@ -1,3 +1,4 @@
+import { sortBy } from 'lodash';
 import { Execution, LogsProvider } from '../llm';
 import { openDB } from 'idb';
 export const indexedDBLogs: LogsProvider = {
@@ -23,7 +24,8 @@ export const indexedDBLogs: LogsProvider = {
         return [];
       }
       const logs = await db.getAll('logs');
-      return logs.map((l) => JSON.parse(l));
+      const sortedLogs = logs.map((l) => JSON.parse(l));
+      return sortBy(sortedLogs, (s) => new Date(s.createdAt));
     } else {
       return [];
     }
