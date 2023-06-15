@@ -34,6 +34,7 @@ import {
   BaseChatMessage,
   ChatMessage,
   HumanChatMessage,
+  SystemChatMessage,
 } from 'langchain/schema';
 
 export type ParserZodEsque<TInput, TParsedInput> = {
@@ -607,23 +608,22 @@ PROMPT:"""
           zodToJsonSchema(def.output as ZodAny, { target: 'openApi3' })
         )
       : '';
+    const systemPrompt =
+      new SystemChatMessage(`Output a json object or array fitting JSON_SCHEMA, based on the PROMPT section below. Use the DOCUMENT section to answer the prompt.
+    Code only, no commentary, no introduction sentence, no codefence block.
+    You are generating json - make sure to escape any double quotes.
+    Do not hallucinate or generate anything that is not in the document.
+    Make sure your answer fits the schema.
+    
+      
+    If you are not sure or cannot generate something for any possible reason, return:
+    {"error" : <the reason of the error>};`);
+
     const zodTemplate = `${queryTemplate}${documentsTemplate.join(`\n`)}${
       def.output
-        ? `JSON SCHEMA:"""
-${jsonSchema}
-  
-"""
-TASK:"""
-Output a json object or array fitting this schema, based on the PROMPT section below. Use the DOCUMENT section above to answer the prompt.
-Code only, no commentary, no introduction sentence, no codefence block.
-You are generating json - make sure to escape any double quotes.
-Do not hallucinate or generate anything that is not in the document.
-Make sure your answer fits the schema.
-
-  
-If you are not sure or cannot generate something for any possible reason, return:
-{"error" : <the reason of the error>};
-"""`
+        ? `
+JSON SCHEMA:"""
+${jsonSchema}`
         : `TASK:"""
 Output text based on the PROMPT section below.
 """`
@@ -639,7 +639,7 @@ ${userPrompt}
     });
 
     try {
-      const chatMessages = [new HumanChatMessage(zodTemplate)];
+      const chatMessages = [systemPrompt, new HumanChatMessage(zodTemplate)];
       const aiMessage = await getOpenAiModel().call(chatMessages);
       const response = aiMessage.text;
 
