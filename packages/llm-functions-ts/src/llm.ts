@@ -36,6 +36,7 @@ import {
   HumanChatMessage,
   SystemChatMessage,
 } from 'langchain/schema';
+import { DocumentAction, DocumentOutput } from './action/documentAction';
 
 export type ParserZodEsque<TInput, TParsedInput> = {
   _input: TInput;
@@ -154,16 +155,7 @@ export type Action =
       functionDef: ProcedureBuilderDef;
       input: FunctionArgs;
     }
-  | {
-      id: string;
-      action: 'get-document';
-      logs?: Log[];
-      input: Document;
-      response:
-        | { type: 'loading' }
-        | { type: 'success'; output: any }
-        | { type: 'error'; error: string };
-    }
+  | DocumentAction
   | {
       id: string;
       action: 'query';
@@ -310,7 +302,7 @@ export const createFn: createFn = (initDef, ...args) => {
     document: Document,
     executionId: string,
     query?: string
-  ) => {
+  ): Promise<DocumentOutput> => {
     switch (document.type) {
       case 'pdf':
         const buffer = Buffer.from(
@@ -339,9 +331,9 @@ export const createFn: createFn = (initDef, ...args) => {
           })
         ).then((s) => s.join('\n'));
 
-        return csv;
+        return { result: csv, fullDocument: csv };
       case 'text':
-        return document.input;
+        return { result: document.input, fullDocument: document.input };
       case 'url': {
         const id = createTrace(executionId, {
           action: 'get-document',
@@ -473,7 +465,7 @@ PROMPT:"""
     chatMessages: BaseChatMessage[],
     retries = 0
   ): Promise<z.infer<T>> => {
-    if (retries > 5) {
+    if (retries > 3) {
       createTrace(executionId, {
         action: 'calling-open-ai',
         template,
@@ -548,12 +540,14 @@ PROMPT:"""
     arg: FunctionArgs,
     _executionId?: string
   ): Promise<Execution<any>> => {
+    const executionId = createExecution(arg, _executionId);
+
     const {
       instructions,
       documents: docs,
       query: queryArg,
     } = arg as FunctionArgs;
-    const executionId = createExecution(arg, _executionId);
+
     createTrace(executionId, {
       action: 'executing-function',
       functionDef: def,
@@ -581,11 +575,10 @@ PROMPT:"""
       ...d,
       input: docs?.[i],
     })) as Document[];
-
     const queryTemplate =
       queryArg && def.query
         ? `DOCUMENT:"""
-  ${queryDoc}
+    ${queryDoc}
   """\n`
         : '';
     const userPrompt = (
@@ -599,10 +592,13 @@ PROMPT:"""
     const documentsTemplate = await Promise.all(
       documents.map(
         async (d) => `DOCUMENT:"""
-  ${await getDocumentText(d, executionId, userPrompt)}
-  """`
+            ${(await getDocumentText(d, executionId, userPrompt)).result}
+            """`
       )
     );
+    if (!def.output && !def.instructions) {
+      return resolveExecution(undefined);
+    }
     const jsonSchema = def.output
       ? JSON.stringify(
           zodToJsonSchema(def.output as ZodAny, { target: 'openApi3' })
