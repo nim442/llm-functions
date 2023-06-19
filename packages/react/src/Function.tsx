@@ -147,26 +147,6 @@ export const Function: React.FC<FunctionProps> = ({
       >
         {functionDef.dataset ? (
           <div className="w-full">
-            <div className="flex justify-between p-4 border-b border-neutral-800">
-              <div className="text-white">
-                <div className="text-white">Dataset</div>
-                <div className="text-neutral-500 text-sm">
-                  Last ran: yesterday
-                </div>
-              </div>
-              <Button
-                className="!w-fit"
-                type="button"
-                onClick={handleEvaluateDatasetClick}
-              >
-                <span className="flex relative justify-center items-center">
-                  Evaluate dataset
-                  {loading && (
-                    <ArrowPathIcon className="w-4 h-4 animate-spin absolute right-0" />
-                  )}
-                </span>
-              </Button>
-            </div>
             <DatasetTable
               evaluateFn={evaluateFn}
               functionDef={functionDef}

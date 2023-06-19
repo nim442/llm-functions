@@ -1,6 +1,6 @@
 'use client';
 
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
+import { ColumnDef, Row, createColumnHelper } from '@tanstack/react-table';
 import { Execution, FunctionArgs } from 'llm-functions-ts';
 import { Inspector } from '../Inspector';
 import {
@@ -16,7 +16,7 @@ export type ExecutionColumn = {
   evaluate: () => void;
   viewExecution: (execution: Execution) => void;
 };
-
+let lastSelectedId = '';
 const columnHelper = createColumnHelper<ExecutionColumn>();
 //@ts-ignore
 export const columns: ColumnDef<ExecutionColumn, any>[] = [
@@ -29,10 +29,20 @@ export const columns: ColumnDef<ExecutionColumn, any>[] = [
         aria-label="Select all"
       />
     ),
-    cell: ({ row }) => (
+    cell: ({ row, table }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
+        onClick={(e) => {
+          if (e.shiftKey) {
+            const { rows, rowsById } = table.getRowModel();
+            const rowsToToggle = getRowRange(rows, row.id, lastSelectedId);
+            const isLastSelected = rowsById[lastSelectedId].getIsSelected();
+            rowsToToggle.forEach((row) => row.toggleSelected(isLastSelected));
+          }
+
+          lastSelectedId = row.id;
+        }}
         aria-label="Select row"
       />
     ),
@@ -131,3 +141,30 @@ export const columns: ColumnDef<ExecutionColumn, any>[] = [
     },
   }),
 ];
+
+function getRowRange<T>(rows: Array<Row<T>>, idA: string, idB: string) {
+  const range: Array<Row<T>> = [];
+  let foundStart = false;
+  let foundEnd = false;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (row.id === idA || row.id === idB) {
+      if (foundStart) {
+        foundEnd = true;
+      }
+      if (!foundStart) {
+        foundStart = true;
+      }
+    }
+
+    if (foundStart) {
+      range.push(row);
+    }
+
+    if (foundEnd) {
+      break;
+    }
+  }
+
+  return range;
+}

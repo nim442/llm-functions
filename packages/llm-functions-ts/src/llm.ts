@@ -1,12 +1,7 @@
 import { ChatOpenAI } from 'langchain/chat_models/openai';
 
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
-import { produce } from 'immer';
-
-import { Pipe, Tuples, Objects, Fn, Call, S } from 'hotscript';
-import { load } from 'cheerio';
+import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
 import { z, ZodAny } from 'zod';
-import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Document } from './documents/document';
 import { json, stringToJSONSchema } from './jsonSchema';
@@ -19,22 +14,19 @@ import {
 
 import * as pdfjs from 'pdfjs-dist';
 
-import _, { memoize } from 'lodash';
+import _ from 'lodash';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
 
-import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { OpenAIInput } from 'langchain/dist/types/openai-types';
-import { BaseLLMParams } from 'langchain/dist/llms/base';
 import { cyrb53 } from './cyrb53';
 import { getUrl } from './documents/urlDocument';
 import {
   BaseChatMessage,
-  ChatMessage,
   HumanChatMessage,
   SystemChatMessage,
+  FunctionChatMessage,
 } from 'langchain/schema';
 import { DocumentAction, DocumentOutput } from './action/documentAction';
 
@@ -78,6 +70,7 @@ export type Execution<T = unknown> = {
   id: string;
   createdAt: Date;
   functionsExecuted: {
+    functionExecutionId: string;
     inputs: FunctionArgs;
     trace: Trace;
     finalResponse?: T;
@@ -281,7 +274,7 @@ export type createFn = <TParams extends ProcedureParams>(
 
 export const createFn: createFn = (initDef, ...args) => {
   let execution: Execution<any> | undefined;
-
+  let functionExecutionId: string;
   const [onExecutionUpdate, onCreated] = args;
   const def = {
     model: {
@@ -297,6 +290,89 @@ export const createFn: createFn = (initDef, ...args) => {
       openAIApiKey:
         process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
     });
+  const callZodOutput = async <T>(
+    messages: BaseChatMessage[],
+    zodSchema: z.ZodSchema<T>,
+    retries: number = 0
+  ): Promise<[T, BaseChatMessage[]]> => {
+    // if (retries > 3) {
+    //   createTrace(executionId, {
+    //     action: 'calling-open-ai',
+    //     template,
+    //     response: {
+    //       type: 'timeout-error',
+    //     },
+    //   });
+    //   return resolveExecution(response);
+    // }
+    const jsonSchema = zodToJsonSchema(zodSchema, {
+      target: 'openApi3',
+    });
+    const resp = await getOpenAiModel().call(messages, {
+      function_call: { name: 'answer' },
+      functions: [
+        {
+          name: 'answer',
+          description: 'Answer the user prompt using this function',
+          parameters: jsonSchema,
+        },
+      ],
+    });
+    const functionCallSchema = z.object({
+      name: z.string(),
+      arguments: stringToJSONSchema,
+    });
+    const functionCallJson = functionCallSchema.safeParse(
+      resp.additional_kwargs.function_call
+    );
+    if (functionCallJson.success) {
+      const argument = zodSchema.safeParse(functionCallJson.data.arguments);
+      if (argument.success) {
+        return [
+          (argument.data as any).argument,
+          [...messages, new FunctionChatMessage('Success', 'answer')],
+        ];
+      } else {
+        // updateTrace(traceId, {
+        //   response: {
+        //     type: 'zod-error',
+        //     output: response,
+        //     error: r.error.message,
+        //   },
+        // });
+        return callZodOutput(
+          [
+            ...messages,
+            new FunctionChatMessage(
+              'Validation error\n' + JSON.stringify(argument.error),
+              'answer'
+            ),
+          ],
+          zodSchema,
+          retries + 1
+        );
+      }
+    } else {
+      // updateTrace(traceId, {
+      //   response: {
+      //     type: 'zod-error',
+      //     output: response,
+      //     error: r.error.message,
+      //   },
+      // });
+      return callZodOutput(
+        [
+          ...messages,
+          new FunctionChatMessage(
+            'Validation error\n' + JSON.stringify(functionCallJson.error),
+            'answer'
+          ),
+        ],
+        zodSchema,
+        retries + 1
+      );
+    }
+  };
 
   const getDocumentText = async (
     document: Document,
@@ -341,6 +417,8 @@ export const createFn: createFn = (initDef, ...args) => {
           response: { type: 'loading' },
         });
         const doc = await getUrl(document, query);
+
+
         updateTrace(id, {
           response: { type: 'success', output: doc },
         });
@@ -348,43 +426,21 @@ export const createFn: createFn = (initDef, ...args) => {
       }
     }
   };
-  const fixZodOutput = async (
-    zodError: z.ZodError,
-    object: z.infer<ReturnType<typeof json>>,
-    executionId: string,
-    chatMessages: BaseChatMessage[]
-  ) => {
-    const template = `ZOD ERROR:"""
-{zodError}
-"""
-TASK:"""
-ZOD ERROR is an error generated by parsing a json object. Output a fixed json based so that the ZOD ERROR doesn't happen when parsing. Only fix the fields in the error. Leave other fields untouched.
-Code only, no commentary, no introduction sentence, no codefence block.
-You are generating a fixed json - make sure to escape any double quotes.
-"""
-    
-PROMPT:"""
-{object}
-"""`;
-    const prompt = interpolateFString(template, {
-      zodError: JSON.stringify(zodError),
-      object: JSON.stringify(object),
-    });
-    const traceId = createTrace(executionId, {
-      action: 'calling-open-ai',
-      template: prompt,
-      response: { type: 'loading' },
-    });
-    chatMessages.push(new HumanChatMessage(prompt));
-    const { text: response } = await getOpenAiModel().call(chatMessages);
-    return { response, prompt, traceId };
-  };
+
   const createExecution = (args: FunctionArgs, _executionId?: string) => {
     const id = _executionId || nanoid.nanoid();
+    functionExecutionId = nanoid.nanoid();
     execution = {
       id,
       createdAt: new Date(),
-      functionsExecuted: [{ trace: [], inputs: args, functionDef: def }],
+      functionsExecuted: [
+        {
+          functionExecutionId: functionExecutionId,
+          trace: [],
+          inputs: args,
+          functionDef: def,
+        },
+      ],
     };
     return id;
   };
@@ -395,7 +451,7 @@ PROMPT:"""
     execution = {
       ...execution,
       functionsExecuted: execution.functionsExecuted.map((e) =>
-        e.functionDef.id === def.id
+        e.functionExecutionId === functionExecutionId
           ? {
               ...e,
               trace: [...e.trace, ...trace],
@@ -420,7 +476,7 @@ PROMPT:"""
     execution = {
       ...execution,
       functionsExecuted: execution.functionsExecuted.map((e) =>
-        e.functionDef.id === def.id
+        e.functionExecutionId === functionExecutionId
           ? {
               ...e,
               trace: [...e.trace, actionWithId],
@@ -441,7 +497,7 @@ PROMPT:"""
     execution = {
       ...execution,
       functionsExecuted: execution.functionsExecuted.map((e) =>
-        e.functionDef.id === def.id
+        e.functionExecutionId === functionExecutionId
           ? {
               ...e,
               trace: e.trace.map((t) =>
@@ -456,86 +512,6 @@ PROMPT:"""
     }
   };
 
-  const fixZodOutputRecursive = async <T extends z.Schema>(
-    zodSchema: T,
-    response: string,
-    template: string,
-    traceId: string,
-    executionId: string,
-    chatMessages: BaseChatMessage[],
-    retries = 0
-  ): Promise<z.infer<T>> => {
-    if (retries > 3) {
-      createTrace(executionId, {
-        action: 'calling-open-ai',
-        template,
-        response: {
-          type: 'timeout-error',
-        },
-      });
-      return resolveExecution(response);
-    }
-
-    const json = stringToJSONSchema.safeParse(response);
-
-    if (json.success) {
-      const r = zodSchema.safeParse(json.data);
-      if (r.success) {
-        updateTrace(traceId, {
-          response: { type: 'success', output: response },
-        });
-        return resolveExecution(r.data);
-      } else {
-        updateTrace(traceId, {
-          response: {
-            type: 'zod-error',
-            output: response,
-            error: r.error.message,
-          },
-        });
-
-        const {
-          response: zodResponse,
-          prompt: zodTemplate,
-          traceId: newTraceId,
-        } = await fixZodOutput(r.error, json.data, executionId, chatMessages);
-
-        return fixZodOutputRecursive(
-          zodSchema,
-          zodResponse,
-          zodTemplate,
-          newTraceId,
-          executionId,
-          chatMessages,
-          retries + 1
-        );
-      }
-    } else {
-      updateTrace(traceId, {
-        response: {
-          type: 'zod-error',
-          output: response,
-          error: json.error.message,
-        },
-      });
-
-      const {
-        response: zodResponse,
-        prompt: zodTemplate,
-        traceId: newTraceId,
-      } = await fixZodOutput(json.error, response, executionId, chatMessages);
-
-      return fixZodOutputRecursive(
-        zodSchema,
-        zodResponse,
-        zodTemplate,
-        newTraceId,
-        executionId,
-        chatMessages,
-        retries + 1
-      );
-    }
-  };
   const run = async (
     arg: FunctionArgs,
     _executionId?: string
@@ -599,31 +575,13 @@ PROMPT:"""
     if (!def.output && !def.instructions) {
       return resolveExecution(undefined);
     }
-    const jsonSchema = def.output
-      ? JSON.stringify(
-          zodToJsonSchema(def.output as ZodAny, { target: 'openApi3' })
-        )
-      : '';
-    const systemPrompt =
-      new SystemChatMessage(`Output a json object or array fitting JSON_SCHEMA, based on the PROMPT section below. Use the DOCUMENT section to answer the prompt.
-    Code only, no commentary, no introduction sentence, no codefence block.
-    You are generating json - make sure to escape any double quotes.
-    Do not hallucinate or generate anything that is not in the document.
-    Make sure your answer fits the schema.
-    
-      
-    If you are not sure or cannot generate something for any possible reason, return:
-    {"error" : <the reason of the error>};`);
+    const zodSchema: z.ZodTypeAny = def.output
+      ? z.object({ argument: def.output })
+      : z.string();
 
-    const zodTemplate = `${queryTemplate}${documentsTemplate.join(`\n`)}${
-      def.output
-        ? `
-JSON SCHEMA:"""
-${jsonSchema}`
-        : `TASK:"""
-Output text based on the PROMPT section below.
-"""`
-    }
+    const systemPrompt = new SystemChatMessage(`Do not halucinate.`);
+
+    const zodTemplate = `${queryTemplate}${documentsTemplate.join(`\n`)}
 PROMPT:"""
 ${userPrompt}
 """`;
@@ -635,27 +593,17 @@ ${userPrompt}
     });
 
     try {
-      const chatMessages = [systemPrompt, new HumanChatMessage(zodTemplate)];
-      const aiMessage = await getOpenAiModel().call(chatMessages);
-      const response = aiMessage.text;
+      let chatMessages = [systemPrompt, new HumanChatMessage(zodTemplate)];
+      const [aiMessage, messages] = await callZodOutput(
+        chatMessages,
+        zodSchema
+      );
+      chatMessages = messages;
 
-      chatMessages.push(aiMessage);
-
-      if (def.output) {
-        return fixZodOutputRecursive(
-          def.output as ZodAny,
-          response,
-          zodTemplate,
-          id,
-          executionId,
-          chatMessages
-        );
-      } else {
-        updateTrace(id, {
-          response: { type: 'success', output: response },
-        });
-        return resolveExecution(response);
-      }
+      updateTrace(id, {
+        response: { type: 'success', output: aiMessage.argument },
+      });
+      return resolveExecution(aiMessage);
     } catch (e) {
       updateTrace(id, {
         response: { type: 'error', error: (e as any).message },
@@ -859,7 +807,7 @@ export const initLLmFunction = (
         functionsExecuted: mergeOrUpdate(
           existingLog.functionsExecuted,
           l.functionsExecuted,
-          (o) => o.functionDef.id || ''
+          (o) => o.functionExecutionId || ''
         ),
       };
       executionLogs = executionLogs.map((e) => {

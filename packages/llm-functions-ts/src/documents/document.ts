@@ -7,4 +7,5 @@ export type Document =
       customFetcher?: (url: string) => Promise<string>;
       chunkingQuery?: string;
       chunkSize?: number;
+      similaritySearch?: number;
     };

@@ -5,10 +5,10 @@ import {
   ProcedureBuilderDef,
   Registry,
 } from 'llm-functions-ts';
-import { Inspector } from './Inspector';
+
 import { useInternalStore } from './internalStore';
 import { isEqual } from 'lodash';
-import { Button } from './Function';
+
 import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Cross2Icon } from '@radix-ui/react-icons';
@@ -18,9 +18,10 @@ export type DatasetTableProps = {
   getLogs?: LogsProvider['getLogs'];
   evaluateFn?: Registry['evaluateFn'];
 };
-import { flatten } from 'flat';
+
 import { ExecutionColumn, columns } from './DatasetTable/columns';
 import { DataTable } from './DatasetTable/data-table';
+
 export const DatasetTable: React.FC<DatasetTableProps> = ({
   functionDef,
   getLogs,
@@ -48,28 +49,40 @@ export const DatasetTable: React.FC<DatasetTableProps> = ({
   };
 
   const data: ExecutionColumn[] = functionDef.dataset
-    .map((dataset) => ({
-      dataset,
-      evaluate: async () => {
-        await evaluateFn?.(functionDef.id || '', dataset);
-        const logs = await getLogs?.();
-        logs && setLogs(logs);
-      },
-      viewExecution: (execution: Execution) => {
-        setFn({
-          functionDef: functionDef,
-          inputs: dataset,
-          execution: execution,
-        });
-      },
-      execution: getExecutionFromLogs(dataset)?.[0],
-    }))
+    .map((dataset) => {
+      const executions = getExecutionFromLogs(dataset);
+      return {
+        dataset,
+        evaluate: async () => {
+          await evaluateFn?.(functionDef.id || '', dataset);
+          const logs = await getLogs?.();
+          logs && setLogs(logs);
+        },
+        viewExecution: (execution: Execution) => {
+          setFn({
+            functionDef: functionDef,
+            inputs: dataset,
+            execution: execution,
+          });
+        },
+        execution: executions[executions.length - 1],
+      };
+    })
     .filter(Boolean);
   return (
     <div className="w-full">
       <Dialog.Root>
         <div className="divide-y divide-neutral-800">
-          <DataTable columns={columns} data={data} />
+          <DataTable
+            evaluate={async (dataset: FunctionArgs) => {
+              const e = await evaluateFn?.(functionDef.id || '', dataset);
+              const logs = await getLogs?.();
+              logs && setLogs(logs);
+              return e;
+            }}
+            columns={columns}
+            data={data}
+          />
           {/* {functionDef.dataset.map((dataset, i) => {
             const executions = getExecutionFromLogs(dataset);
             return <DataTable columns={columns} data={executions} />;
