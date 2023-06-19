@@ -38,7 +38,7 @@ const ErrorState: React.FC<{ message: React.ReactNode }> = ({ message }) => {
 export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
   const { inputs } = data.functionsExecuted[0];
   const trace = data.functionsExecuted.map((d) => d.trace).flat();
-  const finalResponse = data.finalResponse
+  const finalResponse = data.finalResponse;
   const [selectedAction, setSelectedAction] = useState<number>();
   const enableTableView = useInternalStore((s) => s.enableTableView);
   return (
@@ -341,7 +341,7 @@ function renderAction(t: Trace[0]): React.ReactElement {
                   case 'success': {
                     return (
                       <div className="text-sm">
-                        <Response response={t.response.output} />
+                        <Inspector table={false} data={t.response.output.result} />
                       </div>
                     );
                   }

@@ -13,12 +13,14 @@ import { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Cross2Icon } from '@radix-ui/react-icons';
 import { Playground } from './Playground';
-
 export type DatasetTableProps = {
   functionDef: ProcedureBuilderDef;
   getLogs?: LogsProvider['getLogs'];
   evaluateFn?: Registry['evaluateFn'];
 };
+import { flatten } from 'flat';
+import { ExecutionColumn, columns } from './DatasetTable/columns';
+import { DataTable } from './DatasetTable/data-table';
 export const DatasetTable: React.FC<DatasetTableProps> = ({
   functionDef,
   getLogs,
@@ -42,86 +44,109 @@ export const DatasetTable: React.FC<DatasetTableProps> = ({
       );
       return isEqual(fn?.inputs, dataset);
     });
-    return l[l.length - 1];
+    return l;
   };
 
+  const data: ExecutionColumn[] = functionDef.dataset
+    .map((dataset) => ({
+      dataset,
+      evaluate: async () => {
+        await evaluateFn?.(functionDef.id || '', dataset);
+        const logs = await getLogs?.();
+        logs && setLogs(logs);
+      },
+      viewExecution: (execution: Execution) => {
+        setFn({
+          functionDef: functionDef,
+          inputs: dataset,
+          execution: execution,
+        });
+      },
+      execution: getExecutionFromLogs(dataset)?.[0],
+    }))
+    .filter(Boolean);
   return (
     <div className="w-full">
       <Dialog.Root>
         <div className="divide-y divide-neutral-800">
-          {functionDef.dataset.map((dataset, i) => {
-            const execution = getExecutionFromLogs(dataset);
-
-            return (
-              <div key={i} className="flex gap-4 px-4 py-4">
-                <div className="flex-1">
-                  <div className="text-sm font-semibold text-white">Input</div>
-                  <div className="text-white">
-                    {
-                      <Inspector
-                        expandLevel={10}
-                        table={enableTableView}
-                        data={dataset}
-                      />
-                    }
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-semibold text-white">
-                    Executions
-                  </div>
-                  <div className="text-white">
-                    {execution ? (
-                      <div>
-                        <Dialog.Trigger asChild>
-                          <button
-                            onClick={() => {
-                              setFn({
-                                functionDef: functionDef,
-                                inputs: dataset,
-                                execution: execution,
-                              });
-                            }}
-                            className="text-neutral-500 text-xs underline"
-                          >
-                            View
-                          </button>
-                        </Dialog.Trigger>
-                        {execution.verified === true ? (
-                          <div className="text-xs text-green-500">Verified</div>
-                        ) : execution.verified === false ? (
-                          <div className="text-xs text-red-400">
-                            Failed verification
-                          </div>
-                        ) : (
-                          ''
-                        )}
-                        <Inspector
-                          expandLevel={10}
-                          table={enableTableView}
-                          data={execution.finalResponse}
-                        ></Inspector>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-neutral-500">Never ran</div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <Button
-                    onClick={async () => {
-                      await evaluateFn?.(functionDef.id || '', dataset);
-                      const logs = await getLogs?.();
-                      logs && setLogs(logs);
-                    }}
-                    className="!w-fit"
-                  >
-                    Evaluate
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+          <DataTable columns={columns} data={data} />
+          {/* {functionDef.dataset.map((dataset, i) => {
+            const executions = getExecutionFromLogs(dataset);
+            return <DataTable columns={columns} data={executions} />;
+            // return (
+            //   <div key={i} className="flex gap-4 px-4 py-4">
+            //     <div className="flex-1">
+            //       <div className="text-sm font-semibold text-white">Input</div>
+            //       <div className="text-white">
+            //         {
+            //           <Inspector
+            //             expandLevel={10}
+            //             table={enableTableView}
+            //             data={dataset}
+            //           />
+            //         }
+            //       </div>
+            //     </div>
+            //     <div className="flex-1">
+            //       <div className="text-sm font-semibold text-white">
+            //         Executions
+            //       </div>
+            //       <div className="text-white">
+            //         {executions ? (
+            //           executions.map((execution) => (
+            //             <div>
+            //               <Dialog.Trigger asChild>
+            //                 <button
+            //                   onClick={() => {
+            //                     setFn({
+            //                       functionDef: functionDef,
+            //                       inputs: dataset,
+            //                       execution: execution,
+            //                     });
+            //                   }}
+            //                   className="text-neutral-500 text-xs underline"
+            //                 >
+            //                   View
+            //                 </button>
+            //               </Dialog.Trigger>
+            //               {execution.verified === true ? (
+            //                 <div className="text-xs text-green-500">
+            //                   Verified
+            //                 </div>
+            //               ) : execution.verified === false ? (
+            //                 <div className="text-xs text-red-400">
+            //                   Failed verification
+            //                 </div>
+            //               ) : (
+            //                 ''
+            //               )}
+            //               <Inspector
+            //                 expandLevel={10}
+            //                 table={enableTableView}
+            //                 data={execution.finalResponse}
+            //               ></Inspector>
+            //             </div>
+            //           ))
+            //         ) : (
+            //           <div className="text-sm text-neutral-500">Never ran</div>
+            //         )}
+            //       </div>
+            //     </div>
+            //     <div className="flex-1">
+            //       <Button
+            //         onClick={async () => {
+            //           await evaluateFn?.(functionDef.id || '', dataset);
+            //           const logs = await getLogs?.();
+            //           logs && setLogs(logs);
+            //         }}
+            //         className="!w-fit"
+            //       >
+            //         Evaluate
+            //       </Button>
+            //     </div>
+            //   </div>
+            // );
+          })} */}
         </div>
         <Dialog.Portal>
           <Dialog.Overlay className="bg-black/70 fixed inset-0" />

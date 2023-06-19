@@ -74,7 +74,7 @@ export interface ProcedureParams<
 
 export type DocumentWithoutInput = DOmit<Document, 'input'>;
 
-export type Execution<T> = {
+export type Execution<T = unknown> = {
   id: string;
   createdAt: Date;
   functionsExecuted: {
