@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.17
+
+### Patch Changes
+
+- Openai functions for structured output and other changes
+
 ## 0.0.16
 
 ### Patch Changes
