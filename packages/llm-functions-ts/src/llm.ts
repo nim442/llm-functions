@@ -428,6 +428,7 @@ export const createFn: createFn = (initDef, ...args) => {
               type: 'timeout-error',
             },
           });
+          return [argument.error.message as any, messages];
         }
 
         return callZodOutput(
@@ -450,6 +451,14 @@ export const createFn: createFn = (initDef, ...args) => {
           error: functionCallJson.error.message,
         },
       });
+      if (retries > 3) {
+        updateTrace(id, {
+          response: {
+            type: 'timeout-error',
+          },
+        });
+        return [functionCallJson.error.message as any, messages];
+      }
       return callZodOutput(
         [
           ...messages,
@@ -623,10 +632,14 @@ export const createFn: createFn = (initDef, ...args) => {
       return resolveExecution(undefined);
     }
     const zodSchema: z.ZodTypeAny = def.output
-      ? z.object({ argument: def.output })
+      ? z.object({
+          argument: z.union([def.output, z.object({ error: z.string() })]),
+        })
       : z.string();
 
-    const systemPrompt = new SystemChatMessage(`Do not halucinate.`);
+    const systemPrompt = new SystemChatMessage(
+      `Do not halucinate. Only use the function print to return the answer.`
+    );
 
     const zodTemplate = `${queryTemplate}${documentsTemplate.join(`\n`)}
 PROMPT:"""
