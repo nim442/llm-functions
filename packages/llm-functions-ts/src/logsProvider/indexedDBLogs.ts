@@ -25,6 +25,7 @@ export const indexedDBLogs: LogsProvider = {
       }
       const logs = await db.getAll('logs');
       const sortedLogs = logs.map((l) => JSON.parse(l));
+
       return sortBy(sortedLogs, (s) => new Date(s.createdAt));
     } else {
       return [];

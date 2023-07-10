@@ -5,18 +5,21 @@ import * as pdfjs from 'pdfjs-dist';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
 export type DocumentCommonProps = {
-  customFetcher?: (url: string) => Promise<string>;
   chunkingQuery?: string;
   chunkSize?: number;
   topK?: number;
 };
-
-export type Document = (
-  | { type: 'pdf'; input: Buffer }
-  | { type: 'text'; input: string }
-  | { type: 'url'; input: string }
-) &
-  DocumentCommonProps;
+type CustomFetcher = (url: string) => Promise<string>;
+export type Document = DocumentCommonProps &
+  (
+    | { type: 'pdf'; input: Buffer; customFetcher?: CustomFetcher }
+    | { type: 'text'; input: string; customFetcher?: CustomFetcher }
+    | {
+        type: 'url';
+        input: string;
+        customFetcher?: CustomFetcher | 'browserless';
+      }
+  );
 
 export const splitDocument = async (
   document: Document,
@@ -52,7 +55,7 @@ export const splitDocument = async (
     case 'text':
       return { result: document.input, fullDocument: document.input };
     case 'url': {
-      const doc = await getUrlDocument(document, query);     
+      const doc = await getUrlDocument(document, query);
       return doc;
     }
   }

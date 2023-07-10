@@ -10,14 +10,31 @@ import { DocumentOutput } from '../action/documentAction';
 
 async function _getHtml(document: Extract<Document, { type: 'url' }>) {
   const url = document.input;
-  const html = document.customFetcher
-    ? await document.customFetcher(url)
-    : await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-        },
-      }).then((r) => r.text());
+  const html = await (async function () {
+    if (document.customFetcher === 'browserless') {
+      return fetch(
+        `https://chrome.browserless.io/content?token=${process.env.BROWSERLESS_API_TOKEN}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url,
+            waitFor: 4000,
+          }),
+        }
+      ).then((r) => r.text());
+    }
+    return document.customFetcher
+      ? await document.customFetcher(url)
+      : await fetch(url, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+          },
+        }).then((r) => r.text());
+  })();
 
   const body = load(html)('body').html();
   return { body, html, url };

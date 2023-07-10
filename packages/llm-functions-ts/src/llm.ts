@@ -7,12 +7,13 @@ import { Document, splitDocument } from './documents/document';
 import { json, stringToJSONSchema } from './jsonSchema';
 import {
   ExtractTemplateParams,
+  Simplify,
   getApiKeyFromLocalStorage,
   interpolateFString,
   mergeOrUpdate,
 } from './utils';
 
-import _ from 'lodash';
+import _, { pick } from 'lodash';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
@@ -26,11 +27,13 @@ import {
   FunctionChatMessage,
 } from 'langchain/schema';
 import { DocumentAction, DocumentOutput } from './action/documentAction';
-
-export type ParserZodEsque<TInput, TParsedInput> = {
-  _input: TInput;
-  _output: TParsedInput;
-};
+import {
+  FunctionBuilder,
+  FunctionDef,
+  FunctionProcedureBuilder,
+  openAifunctionCalling,
+  toOpenAiFunction,
+} from './functions';
 
 type Parser = z.ZodSchema;
 
@@ -89,6 +92,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   tsOutputString?: string;
   model?: ConstructorParameters<typeof ChatOpenAI>[number];
   documents?: DocumentWithoutInput[];
+  functions?: FunctionDef[];
   query?: { queryInput: boolean; fn: QueryFn<I, O> };
   instructions?: string;
   dataset?: FunctionArgs[];
@@ -105,10 +109,6 @@ interface IsUndefined extends Fn {
   return: this['arg0'] extends undefined ? true : false;
 }
 type OmitUndefined<A> = Call<Objects.OmitBy<IsUndefined>, A>;
-
-export type Simplify<TType> = TType extends any[] | Date
-  ? TType
-  : { [K in keyof TType]: TType[K] };
 
 export type FunctionArgs = Partial<
   InferredFunctionArgs<{
@@ -137,6 +137,25 @@ export type Log = {
   response: { type: 'success'; output: string };
 };
 
+type Response =
+  | {
+      type: 'loading';
+    }
+  | {
+      type: 'success';
+      output: any;
+    }
+  | {
+      type: 'error';
+      error: string;
+    };
+
+type MessageType = 'system' | 'user' | 'asssistant' | 'function';
+
+type FunctionCallData = Pick<FunctionDef, 'name' | 'description'> & {
+  parameters: unknown;
+};
+
 export type Action =
   | Log
   | {
@@ -150,19 +169,30 @@ export type Action =
       id: string;
       action: 'query';
       input?: object;
-      response:
-        | { type: 'loading' }
-        | { type: 'success'; output: any }
-        | { type: 'error'; error: string };
+      response: Response;
+    }
+  | {
+      id: string;
+      action: 'calling-function';
+      input: FunctionCallData;
+      response: Response;
     }
   | {
       id: string;
       action: 'calling-open-ai';
       input?: object;
-      template: string;
+      messages: {
+        type: MessageType;
+        content: string;
+      }[];
       response:
         | { type: 'loading' }
-        | { type: 'success'; output: any }
+        | {
+            type: 'success';
+            output:
+              | { type: 'functionCall'; data: FunctionCallData }
+              | { type: 'response'; data: unknown };
+          }
         | { type: 'zod-error'; output: any; error: string }
         | { type: 'timeout-error' };
     };
@@ -238,6 +268,9 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
     _documents: TParams['_documents'];
     _query: TParams['_query'];
   }>;
+  functions: (
+    functions: FunctionProcedureBuilder<FunctionDef>[]
+  ) => ProcedureBuilder<TParams>;
   verify: (
     aiFn: (
       execution: Execution<TParams['_output']>,
@@ -292,51 +325,111 @@ export const createFn: createFn = (initDef, ...args) => {
     zodSchema: z.ZodSchema<T>,
     retries: number = 0
   ): Promise<[T, BaseChatMessage[]]> => {
-    // if (retries > 3) {
-    //   createTrace(executionId, {
-    //     action: 'calling-open-ai',
-    //     template,
-    //     response: {
-    //       type: 'timeout-error',
-    //     },
-    //   });
-    //   return resolveExecution(response);
-    // }
-    const jsonSchema = zodToJsonSchema(zodSchema, {
-      target: 'openApi3',
+    const id = createTrace({
+      action: 'calling-open-ai',
+      messages: messages.map((m) => ({
+        type: m.toJSON().type as MessageType,
+        ...m.toJSON().data,
+      })),
+      response: { type: 'loading' },
     });
+    const printFn = openAifunctionCalling
+      .name('print')
+      .description(
+        'Answer the user prompt using this function. This is the function you call once you have your final answer'
+      )
+      .parameters(zodSchema)
+      .implement(() => Promise.resolve('Return'));
+
+    const functions = [...(def.functions || []), printFn.def];
+    const openAiFunctions = functions.map(toOpenAiFunction);
+
     const resp = await getOpenAiModel().call(messages, {
-      function_call: { name: 'answer' },
-      functions: [
-        {
-          name: 'answer',
-          description: 'Answer the user prompt using this function',
-          parameters: jsonSchema,
-        },
-      ],
+      functions: openAiFunctions,
     });
+
     const functionCallSchema = z.object({
       name: z.string(),
       arguments: stringToJSONSchema,
     });
+
     const functionCallJson = functionCallSchema.safeParse(
       resp.additional_kwargs.function_call
     );
+
     if (functionCallJson.success) {
-      const argument = zodSchema.safeParse(functionCallJson.data.arguments);
+      const fn = functions?.find((f) => f.name === functionCallJson.data.name);
+      if (!fn) {
+        throw new Error(
+          `Function ${functionCallJson.data.name} not found in ${JSON.stringify(
+            functions.map((f) => f.name)
+          )}`
+        );
+      }
+
+      const argument = fn?.parameters?.safeParse(
+        functionCallJson.data.arguments
+      );
+
       if (argument.success) {
-        return [
-          (argument.data as any).argument,
-          [...messages, new FunctionChatMessage('Success', 'answer')],
-        ];
+        if (fn.name === 'print') {
+          const response = (argument.data as any).argument;
+          updateTrace(id, {
+            response: {
+              type: 'success',
+              output: { type: 'response', data: response },
+            },
+          });
+
+          return [
+            response,
+            [...messages, new FunctionChatMessage('Success', 'answer')],
+          ];
+        } else {
+          updateTrace(id, {
+            response: {
+              type: 'success',
+              output: { type: 'functionCall', data: argument.data },
+            },
+          });
+          const id2 = createTrace({
+            action: 'calling-function',
+            input: {
+              ...pick(fn, ['name', 'description']),
+              parameters: argument.data,
+            },
+            response: { type: 'loading' },
+          });
+          const fnResponse = await fn?.implements?.(argument.data);
+          updateTrace(id2, {
+            response: { type: 'success', output: fnResponse },
+          });
+
+          return callZodOutput(
+            [
+              ...messages,
+              new FunctionChatMessage(fnResponse || 'No response', fn.name),
+            ],
+            zodSchema,
+            retries
+          );
+        }
       } else {
-        // updateTrace(traceId, {
-        //   response: {
-        //     type: 'zod-error',
-        //     output: response,
-        //     error: r.error.message,
-        //   },
-        // });
+        updateTrace(id, {
+          response: {
+            type: 'zod-error',
+            output: functionCallJson.data.arguments,
+            error: argument.error.message,
+          },
+        });
+        if (retries > 3) {
+          updateTrace(id, {
+            response: {
+              type: 'timeout-error',
+            },
+          });
+        }
+
         return callZodOutput(
           [
             ...messages,
@@ -350,19 +443,19 @@ export const createFn: createFn = (initDef, ...args) => {
         );
       }
     } else {
-      // updateTrace(traceId, {
-      //   response: {
-      //     type: 'zod-error',
-      //     output: response,
-      //     error: r.error.message,
-      //   },
-      // });
+      updateTrace(id, {
+        response: {
+          type: 'zod-error',
+          output: resp.additional_kwargs.function_call,
+          error: functionCallJson.error.message,
+        },
+      });
       return callZodOutput(
         [
           ...messages,
           new FunctionChatMessage(
             'Validation error\n' + JSON.stringify(functionCallJson.error),
-            'answer'
+            'print'
           ),
         ],
         zodSchema,
@@ -411,7 +504,7 @@ export const createFn: createFn = (initDef, ...args) => {
     return execution;
   };
 
-  const createTrace = (executionId: string, action: DOmit<Action, 'id'>) => {
+  const createTrace = (action: DOmit<Action, 'id'>) => {
     const id = nanoid.nanoid();
     const actionWithId = { ...action, id };
     if (!execution) {
@@ -468,7 +561,7 @@ export const createFn: createFn = (initDef, ...args) => {
       query: queryArg,
     } = arg as FunctionArgs;
 
-    createTrace(executionId, {
+    createTrace({
       action: 'executing-function',
       functionDef: def,
       input: arg,
@@ -476,7 +569,7 @@ export const createFn: createFn = (initDef, ...args) => {
 
     async function getQueryDoc() {
       if (queryArg && def.query) {
-        const id = createTrace(executionId, {
+        const id = createTrace({
           action: 'query',
           input: queryArg,
           response: { type: 'loading' },
@@ -490,6 +583,7 @@ export const createFn: createFn = (initDef, ...args) => {
         return queryDoc;
       } else return undefined;
     }
+
     const queryDoc = await getQueryDoc();
     const documents = (def.documents || []).map((d, i) => ({
       ...d,
@@ -511,7 +605,7 @@ export const createFn: createFn = (initDef, ...args) => {
 
     const documentsTemplate = await Promise.all(
       documents.map(async (d) => {
-        const id = createTrace(executionId, {
+        const id = createTrace({
           action: 'get-document',
           input: d,
           response: { type: 'loading' },
@@ -539,33 +633,12 @@ PROMPT:"""
 ${userPrompt}
 """`;
 
-    const id = createTrace(executionId, {
-      action: 'calling-open-ai',
-      template: zodTemplate,
-      response: { type: 'loading' },
-    });
+    let chatMessages = [systemPrompt, new HumanChatMessage(zodTemplate)];
 
-    try {
-      let chatMessages = [systemPrompt, new HumanChatMessage(zodTemplate)];
-      const [aiMessage, messages] = await callZodOutput(
-        chatMessages,
-        zodSchema
-      );
-      chatMessages = messages;
+    const [aiMessage, messages] = await callZodOutput(chatMessages, zodSchema);
+    chatMessages = messages;
 
-      updateTrace(id, {
-        response: { type: 'success', output: aiMessage.argument },
-      });
-      return resolveExecution(aiMessage);
-    } catch (e) {
-      updateTrace(id, {
-        response: { type: 'error', error: (e as any).message },
-      });
-      return resolveExecution({
-        type: 'error',
-        error: (e as any).message,
-      });
-    }
+    return resolveExecution(aiMessage);
   };
   return {
     __internal: { def: def },
@@ -574,6 +647,15 @@ ${userPrompt}
     },
     description: (description: string) => {
       return createFn({ ...def, description }, ...args);
+    },
+    functions: (functions) => {
+      return createFn(
+        {
+          ...def,
+          functions: [...(def.functions || []), ...functions.map((f) => f.def)],
+        },
+        ...args
+      );
     },
     dataset: (dataset) => {
       return createFn({ ...def, dataset: dataset as any }, ...args);
@@ -671,7 +753,7 @@ ${userPrompt}
             const aiFunction = safeParseAiFn(fn);
             if (aiFunction) {
               const functionDef = aiFunction.__internal_def;
-              createTrace(p.id, {
+              createTrace({
                 action: 'executing-function',
                 functionDef,
                 input: p.finalResponse,

@@ -106,6 +106,18 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
                                       </div>
                                     </div>
                                   );
+                                case 'calling-function':
+                                  return (
+                                    <div className="flex flex-col gap-2">
+                                      <div className=" text-xs font-semibold  text-neutral-500">
+                                        Calling external function
+                                      </div>
+                                      <div className="text-white flex items-center text-sm gap-1">
+                                        <CommandLineIcon className="w-4 h-4" />{' '}
+                                        {t.input.name}{' '}
+                                      </div>
+                                    </div>
+                                  );
                                 case 'query':
                                   return (
                                     <Action
@@ -172,16 +184,27 @@ function renderAction(t: Trace[0]): React.ReactElement {
           <div className="flex flex-col gap-2">
             <div>
               <div className="text-neutral-500 text-sm font-sm mb-1">
-                Template
+                Messages
               </div>
-              <div className="bg-neutral-800 p-4 text-white text-sm whitespace-break-spaces rounded">
-                {t.template}
+              <div className="flex flex-col gap-2">
+                {t.messages.map((message) => {
+                  return (
+                    <div className="bg-neutral-800 p-4 text-white text-sm whitespace-break-spaces rounded">
+                      <div className="text-neutral-500 text-xs font-sm mb-1 font-bold">
+                        {message.type}
+                      </div>
+                      <div className="text-sm whitespace-break-spaces">
+                        {message.content}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <div>
               <div>
                 <div className="text-neutral-500 text-sm font-sm mb-1">
-                  Output
+                  Response
                 </div>
                 <div className=" whitespace-break-spaces">
                   {((): React.ReactElement => {
@@ -189,14 +212,45 @@ function renderAction(t: Trace[0]): React.ReactElement {
                       case 'success': {
                         return (
                           <div className="text-sm">
-                            <Response response={t.response.output} />
+                            {(function () {
+                              switch (t.response.output.type) {
+                                case 'functionCall':
+                                  return (
+                                    <div>
+                                      <div className="text-neutral-500 text-sm font-sm mb-1">
+                                        Calling function with the following
+                                        params
+                                      </div>
+                                      <div className="bg-neutral-800 p-4 text-white text-sm whitespace-break-spaces rounded">
+                                        <Inspector
+                                          expandLevel={10}
+                                          table={false}
+                                          data={t.response.output.data}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                case 'response':
+                                  return (
+                                    <Inspector
+                                      expandLevel={10}
+                                      table={false}
+                                      data={t.response.output.data}
+                                    />
+                                  );
+                              }
+                            })()}
                           </div>
                         );
                       }
                       case 'zod-error':
                         return (
                           <>
-                            {t.response.output}
+                            <Inspector
+                              expandLevel={10}
+                              table={false}
+                              data={t.response.output}
+                            ></Inspector>
                             <ErrorState message={t.response.error} />;
                           </>
                         );
@@ -211,6 +265,52 @@ function renderAction(t: Trace[0]): React.ReactElement {
                     }
                   })()}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    case 'calling-function':
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+            <Parameters defaultOpen={true} heading={'Name'}>
+              {t.input.name}
+            </Parameters>
+            <Parameters defaultOpen={true} heading={'Description'}>
+              {t.input.description}
+            </Parameters>
+            <div>
+              <div>
+                <Parameters defaultOpen={true} heading={'Input'}>
+                  <Inspector
+                    expandLevel={10}
+                    table={false}
+                    data={t.input.parameters}
+                  />
+                </Parameters>
+
+                <Parameters defaultOpen={true} heading="Output">
+                  {((): React.ReactElement => {
+                    switch (t.response.type) {
+                      case 'success': {
+                        return (
+                          <div className="text-sm">
+                            <Response response={t.response.output} />
+                          </div>
+                        );
+                      }
+                      case 'error':
+                        return <ErrorState message={t.response.error} />;
+                      case 'loading':
+                        return (
+                          <div className="text-sm text-neutral-700">
+                            Loading
+                          </div>
+                        );
+                    }
+                  })()}
+                </Parameters>
               </div>
             </div>
           </div>
@@ -341,7 +441,10 @@ function renderAction(t: Trace[0]): React.ReactElement {
                   case 'success': {
                     return (
                       <div className="text-sm">
-                        <Inspector table={false} data={t.response.output.result} />
+                        <Inspector
+                          table={false}
+                          data={t.response.output.result}
+                        />
                       </div>
                     );
                   }

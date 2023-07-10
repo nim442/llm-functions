@@ -101,3 +101,7 @@ export const getApiKeyFromLocalStorage = () => {
     return localStorage.getItem('OPENAI_API_KEY');
   } else return undefined;
 };
+
+export type Simplify<TType> = TType extends any[] | Date
+  ? TType
+  : { [K in keyof TType]: TType[K] };
