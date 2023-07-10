@@ -256,6 +256,8 @@ function renderAction(t: Trace[0]): React.ReactElement {
                         );
                       case 'timeout-error':
                         return <ErrorState message="Timed out" />;
+                      case 'error':
+                        return <ErrorState message={t.response.error} />;
                       case 'loading':
                         return (
                           <div className="text-sm text-neutral-700">

@@ -73,7 +73,7 @@ export const Playground: React.FC<{
           <div className="flex gap-2">
             <div className="text-xs  bg-neutral-800 border-[0.5px] border-neutral-700 rounded flex gap-1 items-center p-2 w-fit">
               <CpuChipIcon className="w-5 h-5"></CpuChipIcon>
-              {functionDef.model[0]}
+              {functionDef.model?.modelName}
             </div>
             <div className="text-xs  bg-neutral-800 border-[0.5px] border-neutral-700 rounded flex gap-1 items-center p-2 w-fit">
               <FireIcon className="w-5 h-5" />

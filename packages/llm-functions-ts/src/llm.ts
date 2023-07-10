@@ -1,10 +1,11 @@
 import { ChatOpenAI } from 'langchain/chat_models/openai';
 
 import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
-import { z, ZodAny } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
+import { generateErrorMessage } from 'zod-error';
+
 import { Document, splitDocument } from './documents/document';
-import { json, stringToJSONSchema } from './jsonSchema';
+import { stringToJSONSchema } from './jsonSchema';
 import {
   ExtractTemplateParams,
   Simplify,
@@ -13,27 +14,26 @@ import {
   mergeOrUpdate,
 } from './utils';
 
-import _, { pick } from 'lodash';
+import _, { compact, pick } from 'lodash';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
 
 import { cyrb53 } from './cyrb53';
-import { getUrlDocument } from './documents/urlDocument';
 import {
-  BaseChatMessage,
-  HumanChatMessage,
-  SystemChatMessage,
-  FunctionChatMessage,
+  BaseMessage,
+  HumanMessage,
+  SystemMessage,
+  FunctionMessage,
 } from 'langchain/schema';
-import { DocumentAction, DocumentOutput } from './action/documentAction';
+import { DocumentAction } from './action/documentAction';
 import {
-  FunctionBuilder,
   FunctionDef,
   FunctionProcedureBuilder,
   openAifunctionCalling,
   toOpenAiFunction,
 } from './functions';
+import { Message, MessageType, fromLangChainMessage } from './Message';
 
 type Parser = z.ZodSchema;
 
@@ -44,7 +44,7 @@ export interface ProcedureParams<
   Output = string,
   Input = unknown,
   Documents extends DocumentWithoutInput[] | unknown = unknown,
-  Query extends ((...args: any) => any) | unknown = unknown
+  Query extends ((...args: any) => any) | unknown = unknown,
 > {
   /**
    * @internal
@@ -150,8 +150,6 @@ type Response =
       error: string;
     };
 
-type MessageType = 'system' | 'user' | 'asssistant' | 'function';
-
 type FunctionCallData = Pick<FunctionDef, 'name' | 'description'> & {
   parameters: unknown;
 };
@@ -181,10 +179,7 @@ export type Action =
       id: string;
       action: 'calling-open-ai';
       input?: object;
-      messages: {
-        type: MessageType;
-        content: string;
-      }[];
+      messages: Message[];
       response:
         | { type: 'loading' }
         | {
@@ -193,6 +188,7 @@ export type Action =
               | { type: 'functionCall'; data: FunctionCallData }
               | { type: 'response'; data: unknown };
           }
+        | { type: 'error'; error: string }
         | { type: 'zod-error'; output: any; error: string }
         | { type: 'timeout-error' };
     };
@@ -321,16 +317,13 @@ export const createFn: createFn = (initDef, ...args) => {
         process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
     });
   const callZodOutput = async <T>(
-    messages: BaseChatMessage[],
+    messages: BaseMessage[],
     zodSchema: z.ZodSchema<T>,
     retries: number = 0
-  ): Promise<[T, BaseChatMessage[]]> => {
+  ): Promise<[T, BaseMessage[]]> => {
     const id = createTrace({
       action: 'calling-open-ai',
-      messages: messages.map((m) => ({
-        type: m.toJSON().type as MessageType,
-        ...m.toJSON().data,
-      })),
+      messages: messages.map(fromLangChainMessage),
       response: { type: 'loading' },
     });
     const printFn = openAifunctionCalling
@@ -347,12 +340,29 @@ export const createFn: createFn = (initDef, ...args) => {
     const resp = await getOpenAiModel().call(messages, {
       functions: openAiFunctions,
     });
+    resp._getType;
+    messages = [...messages, resp];
 
     const functionCallSchema = z.object({
       name: z.string(),
       arguments: stringToJSONSchema,
     });
-
+    if (!resp.additional_kwargs.function_call) {
+      updateTrace(id, {
+        response: {
+          type: 'error',
+          error: `No function call found, Got text instead: ${resp.text}`,
+        },
+      });
+      return callZodOutput(
+        [
+          ...messages,
+          new HumanMessage('Please use the print function to respond'),
+        ],
+        zodSchema,
+        retries + 1
+      );
+    }
     const functionCallJson = functionCallSchema.safeParse(
       resp.additional_kwargs.function_call
     );
@@ -383,7 +393,7 @@ export const createFn: createFn = (initDef, ...args) => {
 
           return [
             response,
-            [...messages, new FunctionChatMessage('Success', 'answer')],
+            [...messages, new FunctionMessage('Success', 'print')],
           ];
         } else {
           updateTrace(id, {
@@ -408,7 +418,7 @@ export const createFn: createFn = (initDef, ...args) => {
           return callZodOutput(
             [
               ...messages,
-              new FunctionChatMessage(fnResponse || 'No response', fn.name),
+              new FunctionMessage(fnResponse || 'No response', fn.name),
             ],
             zodSchema,
             retries
@@ -434,8 +444,9 @@ export const createFn: createFn = (initDef, ...args) => {
         return callZodOutput(
           [
             ...messages,
-            new FunctionChatMessage(
-              'Validation error\n' + JSON.stringify(argument.error),
+            new FunctionMessage(
+              'Validation error\n' +
+                JSON.stringify(generateErrorMessage(argument.error.issues)),
               'answer'
             ),
           ],
@@ -462,8 +473,11 @@ export const createFn: createFn = (initDef, ...args) => {
       return callZodOutput(
         [
           ...messages,
-          new FunctionChatMessage(
-            'Validation error\n' + JSON.stringify(functionCallJson.error),
+          new FunctionMessage(
+            'Validation error\n' +
+              JSON.stringify(
+                generateErrorMessage(functionCallJson.error.issues)
+              ),
             'print'
           ),
         ],
@@ -637,20 +651,24 @@ export const createFn: createFn = (initDef, ...args) => {
         })
       : z.string();
 
-    const systemPrompt = new SystemChatMessage(
-      `Do not halucinate. Only use the function print to return the answer.`
+    const systemPrompt = new SystemMessage(
+      `Do not halucinate.Use the DOCUMENT to answer user prompts.
+Once you have the answer, use the print function. Always call one of the provided functions
+Make sure you follow the json schema when calling the provided functions
+`
     );
+    const userMessages = compact([
+      queryTemplate && new HumanMessage(queryTemplate),
+      documentsTemplate.length > 0 &&
+        new HumanMessage(documentsTemplate.join('\n')),
+      new HumanMessage(userPrompt),
+    ]);
 
-    const zodTemplate = `${queryTemplate}${documentsTemplate.join(`\n`)}
-PROMPT:"""
-${userPrompt}
-"""`;
-
-    let chatMessages = [systemPrompt, new HumanChatMessage(zodTemplate)];
+    let chatMessages = [systemPrompt, ...userMessages];
 
     const [aiMessage, messages] = await callZodOutput(chatMessages, zodSchema);
     chatMessages = messages;
-
+    console.log(chatMessages);
     return resolveExecution(aiMessage);
   };
   return {

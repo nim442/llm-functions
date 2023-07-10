@@ -71,7 +71,7 @@ export const toOpenAiFunction = <T extends FunctionDef>(fn: T) => {
   return {
     name: fn.name,
     description: fn.description,
-    parameters: zodToJsonSchema(fn.parameters),
+    parameters: zodToJsonSchema(fn.parameters, { target: 'openApi3' }),
   };
 };
 
