@@ -3,7 +3,7 @@ import { ChatOpenAI } from 'langchain/chat_models/openai';
 import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
 import { z, ZodAny } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { Document } from './documents/document';
+import { Document, splitDocument } from './documents/document';
 import { json, stringToJSONSchema } from './jsonSchema';
 import {
   ExtractTemplateParams,
@@ -12,16 +12,13 @@ import {
   mergeOrUpdate,
 } from './utils';
 
-import * as pdfjs from 'pdfjs-dist';
-
 import _ from 'lodash';
-import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
 
 import { cyrb53 } from './cyrb53';
-import { getUrl } from './documents/urlDocument';
+import { getUrlDocument } from './documents/urlDocument';
 import {
   BaseChatMessage,
   HumanChatMessage,
@@ -374,59 +371,6 @@ export const createFn: createFn = (initDef, ...args) => {
     }
   };
 
-  const getDocumentText = async (
-    document: Document,
-    executionId: string,
-    query?: string
-  ): Promise<DocumentOutput> => {
-    switch (document.type) {
-      case 'pdf':
-        const buffer = Buffer.from(
-          document.input as unknown as string,
-          'base64'
-        );
-        //Only add this on the browser
-        if (typeof window !== 'undefined') {
-          pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
-        }
-        const p = await pdfjs.getDocument(buffer).promise;
-        const csv = await Promise.all(
-          _.range(p.numPages).map(async (i) => {
-            const page = await p.getPage(i + 1);
-            const text = await page.getTextContent();
-            return _.chain(text.items as TextItem[])
-              .filter((d) => 'transform' in d)
-              .groupBy((d) => d.transform[5])
-              .mapValues((d) => d.map((t) => t.str).join(','))
-              .entries()
-              .sortBy((t) => Number(t[0]))
-              .map((t) => t[1])
-              .reverse()
-              .join('\n')
-              .value();
-          })
-        ).then((s) => s.join('\n'));
-
-        return { result: csv, fullDocument: csv };
-      case 'text':
-        return { result: document.input, fullDocument: document.input };
-      case 'url': {
-        const id = createTrace(executionId, {
-          action: 'get-document',
-          input: document,
-          response: { type: 'loading' },
-        });
-        const doc = await getUrl(document, query);
-
-
-        updateTrace(id, {
-          response: { type: 'success', output: doc },
-        });
-        return doc;
-      }
-    }
-  };
-
   const createExecution = (args: FunctionArgs, _executionId?: string) => {
     const id = _executionId || nanoid.nanoid();
     functionExecutionId = nanoid.nanoid();
@@ -566,11 +510,20 @@ export const createFn: createFn = (initDef, ...args) => {
     ) as string;
 
     const documentsTemplate = await Promise.all(
-      documents.map(
-        async (d) => `DOCUMENT:"""
-            ${(await getDocumentText(d, executionId, userPrompt)).result}
-            """`
-      )
+      documents.map(async (d) => {
+        const id = createTrace(executionId, {
+          action: 'get-document',
+          input: d,
+          response: { type: 'loading' },
+        });
+        const documentContext = await splitDocument(d, executionId, userPrompt);
+        updateTrace(id, {
+          response: { type: 'success', output: documentContext },
+        });
+        return `DOCUMENT:"""
+            ${documentContext.result}
+            """`;
+      })
     );
     if (!def.output && !def.instructions) {
       return resolveExecution(undefined);

@@ -10,7 +10,7 @@ import { DocumentOutput } from '../action/documentAction';
 
 async function _getHtml(document: Extract<Document, { type: 'url' }>) {
   const url = document.input;
-  const urlHtml = document.customFetcher
+  const html = document.customFetcher
     ? await document.customFetcher(url)
     : await fetch(url, {
         headers: {
@@ -19,17 +19,17 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
         },
       }).then((r) => r.text());
 
-  const cleanedHtml = load(urlHtml)('body').html();
-  return { cleanedHtml, urlHtml, url };
+  const body = load(html)('body').html();
+  return { body, html, url };
 }
-const getVectorStore = () => {};
+
 const getHtml = memoize(_getHtml, (d) => d.input);
 
 const _getUrl = async (
   document: Extract<Document, { type: 'url' }>,
   query: string | undefined
 ): Promise<DocumentOutput> => {
-  const { cleanedHtml, urlHtml, url } = await getHtml(document);
+  const { body, html: urlHtml, url } = await getHtml(document);
 
   const c = RecursiveCharacterTextSplitter.fromLanguage('html', {
     chunkOverlap: 0,
@@ -38,9 +38,10 @@ const _getUrl = async (
   const openAIEmbeddings = new OpenAIEmbeddings({
     openAIApiKey:
       process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
+    maxRetries: 20,
   });
 
-  const splitHtml = await c.createDocuments([cleanedHtml]);
+  const splitHtml = await c.createDocuments([body || '']);
 
   const vectorStores = await MemoryVectorStore.fromDocuments(
     splitHtml,
@@ -49,7 +50,7 @@ const _getUrl = async (
 
   const similaritySearch = await vectorStores.similaritySearch(
     document.chunkingQuery || query || '',
-    document.similaritySearch || 4
+    document.topK || 4
   );
 
   const search = similaritySearch.map((s) => s.pageContent).join('\n');
@@ -61,7 +62,7 @@ const _getUrl = async (
   };
 };
 
-export const getUrl = memoize(
+export const getUrlDocument = memoize(
   _getUrl,
-  (d) => d.input + d.chunkSize + d.similaritySearch
+  (d) => d.input + d.chunkSize + d.topK
 );
