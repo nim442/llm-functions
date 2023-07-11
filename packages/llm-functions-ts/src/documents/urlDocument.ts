@@ -36,25 +36,6 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
         }).then((r) => r.text());
   })();
 
-  // const h = load(html);
-  // const body = h
-  //   .root()
-  //   .each((i, e) => {
-  //     const $ = load(e);
-
-  //     $.root()
-  //       .contents()
-  //       .filter(function () {
-  //         return this.type === 'comment';
-  //       })
-  //       .remove();
-  //     $('script').remove();
-  //     $('style').remove();
-  //     $('noscript').remove();
-  //     $('iframe').remove();
-  //   })
-  //   .html();
-
   let $ = load(html);
   // Remove comments
   $('*')
@@ -69,24 +50,27 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
   $('iframe').remove();
   $('noscript').remove();
 
-  //Remove newlines
-  // $('*')
-  //   .contents()
-  //   .filter(function () {
-  //     var ns = this.nextSibling;
-  //     if (ns != null) {
-  //       return (
-  //         this.nodeType === 3 &&
-  //         ns.nodeType === 3 &&
-  //         /^\s+$/.test(this.nodeValue)
-  //       ); // Node.TEXT_NODE
-  //     }
-  //     return false;
-  //   })
-  //   .remove();
+  const selectedEl = (function () {
+    if (document.selector) {
+      const selectedEl = $(document.selector);
+      selectedEl.find('*').each((index, element) => {
+        const $element = $(element);
+        $element.removeAttr('class');
+      });
+      return selectedEl;
+    } else {
+      return $.root();
+    }
+  })();
 
-  // Get the updated HTML
-  const body = $('body').html()?.replace(/\s+/g, ' ').trim();
+  const body = selectedEl
+    .map((_, element) =>
+      document.returnType === 'text' ? $(element).text() : $(element).html()
+    )
+    .get()
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   return { body, html, url };
 }

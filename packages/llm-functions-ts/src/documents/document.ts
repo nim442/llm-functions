@@ -5,6 +5,8 @@ import * as pdfjs from 'pdfjs-dist';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
 export type DocumentCommonProps = {
+  selector?: string;
+  returnType?: 'text' | 'html';
   chunkingStrategy?: {
     strategy: 'textSplitter';
     options: { chunkingQuery?: string; chunkSize?: number; topK?: number };
