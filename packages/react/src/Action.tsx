@@ -19,7 +19,7 @@ export const Action: React.FC<ActionProps> = ({
         </div>
         <span
           className={classNames(
-            'bg-amber-200 text-amber-800 px-2 rounded flex items-center justify-center text-xs font-semibold over h-6',
+            'bg-amber-200 max-w-md overflow-hidden text-ellipsis whitespace-nowrap text-amber-800 px-2 rounded flex items-center text-xs font-semibold over h-6',
             className
           )}
         >

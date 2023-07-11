@@ -59,7 +59,7 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
                   </div>
                   <div className="flex flex-col gap-1 mb-2">
                     <div className="text-neutral-500 text-xs">Input</div>
-                    <div className="text-white text-sm whitespace-break-spaces rounded">
+                    <div className="text-white text-sm whitespace-break-spaces rounded max-w-md overflow-scroll">
                       <Inspector
                         expandLevel={10}
                         table={enableTableView}
@@ -131,7 +131,11 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
                                   return (
                                     <Action
                                       isLoading={t.response.type === 'loading'}
-                                      action={`Querying url:${t.input.input}`}
+                                      action={`Querying document: ${
+                                        t.input.type === 'pdf'
+                                          ? t.input.input.name
+                                          : t.input.input
+                                      }`}
                                     />
                                   );
                               }
@@ -298,7 +302,10 @@ function renderAction(t: Trace[0]): React.ReactElement {
                       case 'success': {
                         return (
                           <div className="text-sm">
-                            <Response response={t.response.output} />
+                            <Inspector
+                              data={t.response.output}
+                              table={false}
+                            ></Inspector>
                           </div>
                         );
                       }
@@ -331,7 +338,7 @@ function renderAction(t: Trace[0]): React.ReactElement {
                   case 'success': {
                     return (
                       <div className="text-sm">
-                        <Response response={t.response.output} />
+                        <Inspector table={false} data={t.response.output} />
                       </div>
                     );
                   }
@@ -419,19 +426,25 @@ function renderAction(t: Trace[0]): React.ReactElement {
                         </div>
                         <div className="text-sm whitespace-break-spaces">
                           Chunking Query:
-                          {t.input.chunkingQuery}
+                          {t.input?.chunkingStrategy?.options?.chunkingQuery}
                         </div>
                         <div className="text-sm whitespace-break-spaces">
                           Chunking size:
-                          {t.input.chunkSize || 2000}
+                          {t.input?.chunkingStrategy?.options?.chunkingQuery ||
+                            2000}
                         </div>
                       </div>
                     );
                   case 'pdf':
+                    return (
+                      <div>
+                        <div>{t.input.input.name}</div>
+                      </div>
+                    );
                   case 'text':
                     return (
                       <div>
-                        <div>{t.input && JSON.stringify(t.input.input)}</div>
+                        <div>{t.input.input}</div>
                       </div>
                     );
                 }
@@ -443,6 +456,12 @@ function renderAction(t: Trace[0]): React.ReactElement {
                   case 'success': {
                     return (
                       <div className="text-sm">
+                        <Inspector
+                          name="chunks"
+                          table={false}
+                          expandLevel={0}
+                          data={t.response.output.chunks?.length}
+                        ></Inspector>
                         <Inspector
                           table={false}
                           data={t.response.output.result}

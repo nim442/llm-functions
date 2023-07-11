@@ -34,6 +34,7 @@ import {
   toOpenAiFunction,
 } from './functions';
 import { Message, MessageType, fromLangChainMessage } from './Message';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 type Parser = z.ZodSchema;
 
@@ -357,13 +358,15 @@ export const createFn: createFn = (initDef, ...args) => {
       return callZodOutput(
         [
           ...messages,
-          new HumanMessage('Please use the print function to respond'),
+          new HumanMessage(`Please use the print function to respond. print function has the following scheme:
+${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}         
+`),
         ],
         zodSchema,
         retries + 1
       );
     }
-    const functionCallJson = functionCallSchema.safeParse(
+    const functionCallJson = await functionCallSchema.safeParseAsync(
       resp.additional_kwargs.function_call
     );
 
@@ -444,11 +447,7 @@ export const createFn: createFn = (initDef, ...args) => {
         return callZodOutput(
           [
             ...messages,
-            new FunctionMessage(
-              'Validation error\n' +
-                JSON.stringify(generateErrorMessage(argument.error.issues)),
-              'answer'
-            ),
+            createValidationErrorFunctionMessage(argument.error.message),
           ],
           zodSchema,
           retries + 1
@@ -470,16 +469,11 @@ export const createFn: createFn = (initDef, ...args) => {
         });
         return [functionCallJson.error.message as any, messages];
       }
+
       return callZodOutput(
         [
           ...messages,
-          new FunctionMessage(
-            'Validation error\n' +
-              JSON.stringify(
-                generateErrorMessage(functionCallJson.error.issues)
-              ),
-            'print'
-          ),
+          createValidationErrorFunctionMessage(functionCallJson.error.message),
         ],
         zodSchema,
         retries + 1
@@ -652,23 +646,23 @@ export const createFn: createFn = (initDef, ...args) => {
       : z.string();
 
     const systemPrompt = new SystemMessage(
-      `Do not halucinate.Use the DOCUMENT to answer user prompts.
+      `Use the DOCUMENT to answer user prompts.
 Once you have the answer, use the print function. Always call one of the provided functions
-Make sure you follow the json schema when calling the provided functions
-`
+Make sure you follow the json schema when calling the provided functions`
     );
     const userMessages = compact([
       queryTemplate && new HumanMessage(queryTemplate),
       documentsTemplate.length > 0 &&
         new HumanMessage(documentsTemplate.join('\n')),
-      new HumanMessage(userPrompt),
+      userPrompt && new HumanMessage(userPrompt),
+      new HumanMessage('Remember, always call one of the provided functions'),
     ]);
 
     let chatMessages = [systemPrompt, ...userMessages];
 
     const [aiMessage, messages] = await callZodOutput(chatMessages, zodSchema);
     chatMessages = messages;
-    console.log(chatMessages);
+
     return resolveExecution(aiMessage);
   };
   return {
@@ -936,3 +930,9 @@ export const initLLmFunction = (
     llmFunction,
   };
 };
+function createValidationErrorFunctionMessage(error: string) {
+  return new FunctionMessage(
+    `function 'print' returned a Validation error\n'${error}\n Try again with a valid response. You may be forgetting to add key called 'argument'`,
+    'print'
+  );
+}

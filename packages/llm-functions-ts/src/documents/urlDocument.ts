@@ -36,7 +36,58 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
         }).then((r) => r.text());
   })();
 
-  const body = load(html)('body').html();
+  // const h = load(html);
+  // const body = h
+  //   .root()
+  //   .each((i, e) => {
+  //     const $ = load(e);
+
+  //     $.root()
+  //       .contents()
+  //       .filter(function () {
+  //         return this.type === 'comment';
+  //       })
+  //       .remove();
+  //     $('script').remove();
+  //     $('style').remove();
+  //     $('noscript').remove();
+  //     $('iframe').remove();
+  //   })
+  //   .html();
+
+  let $ = load(html);
+  // Remove comments
+  $('*')
+    .contents()
+    .each(function () {
+      if (this.type === 'comment') $(this).remove();
+    });
+
+  // Remove script and style tags
+  $('script').remove();
+  $('style').remove();
+  $('iframe').remove();
+  $('noscript').remove();
+
+  //Remove newlines
+  // $('*')
+  //   .contents()
+  //   .filter(function () {
+  //     var ns = this.nextSibling;
+  //     if (ns != null) {
+  //       return (
+  //         this.nodeType === 3 &&
+  //         ns.nodeType === 3 &&
+  //         /^\s+$/.test(this.nodeValue)
+  //       ); // Node.TEXT_NODE
+  //     }
+  //     return false;
+  //   })
+  //   .remove();
+
+  // Get the updated HTML
+  const body = $('body').html()?.replace(/\s+/g, ' ').trim();
+
   return { body, html, url };
 }
 
@@ -47,39 +98,49 @@ const _getUrl = async (
   query: string | undefined
 ): Promise<DocumentOutput> => {
   const { body, html: urlHtml, url } = await getHtml(document);
+  const chunkingStrategy = document.chunkingStrategy;
+  if (chunkingStrategy) {
+    const c = RecursiveCharacterTextSplitter.fromLanguage('html', {
+      chunkOverlap: 0,
+      chunkSize: chunkingStrategy.options.chunkSize || 8000,
+    });
+    const openAIEmbeddings = new OpenAIEmbeddings({
+      openAIApiKey:
+        process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
+      maxRetries: 20,
+    });
 
-  const c = RecursiveCharacterTextSplitter.fromLanguage('html', {
-    chunkOverlap: 0,
-    chunkSize: document.chunkSize || 8000,
-  });
-  const openAIEmbeddings = new OpenAIEmbeddings({
-    openAIApiKey:
-      process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
-    maxRetries: 20,
-  });
+    const splitHtml = await c.createDocuments([body || '']);
 
-  const splitHtml = await c.createDocuments([body || '']);
+    const vectorStores = await MemoryVectorStore.fromDocuments(
+      splitHtml,
+      openAIEmbeddings
+    );
 
-  const vectorStores = await MemoryVectorStore.fromDocuments(
-    splitHtml,
-    openAIEmbeddings
-  );
+    const similaritySearch = await vectorStores.similaritySearch(
+      chunkingStrategy.options.chunkingQuery || query || '',
+      chunkingStrategy.options.topK || 4
+    );
 
-  const similaritySearch = await vectorStores.similaritySearch(
-    document.chunkingQuery || query || '',
-    document.topK || 4
-  );
+    const search = similaritySearch.map((s) => s.pageContent).join('\n\n');
 
-  const search = similaritySearch.map((s) => s.pageContent).join('\n');
-
-  return {
-    fullDocument: urlHtml,
-    result: `Scraped ${url}\n${search}`,
-    chunks: splitHtml.map((s) => s.pageContent),
-  };
+    return {
+      fullDocument: urlHtml,
+      result: `Scraped ${url}\n${search}`,
+      chunks: splitHtml.map((s) => s.pageContent),
+    };
+  } else
+    return {
+      fullDocument: urlHtml,
+      result: `Scraped ${url}\n${body}`,
+      chunks: [body || ''],
+    };
 };
 
 export const getUrlDocument = memoize(
   _getUrl,
-  (d) => d.input + d.chunkSize + d.topK
+  (d) =>
+    d.input +
+    d.chunkingStrategy?.options.chunkSize +
+    d.chunkingStrategy?.options.topK
 );

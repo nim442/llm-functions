@@ -23,6 +23,7 @@ export const LogsTable: React.FC<{
     inputs: FunctionArgs;
     execution: Execution<any>;
   }>();
+  
   useEffect(() => {
     getLogs?.().then((l) => setLogs(l));
   }, []);

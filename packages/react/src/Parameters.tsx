@@ -12,6 +12,6 @@ export const Parameters: React.FC<{
       <ChevronRightIcon className="group-data-[state=open]:rotate-90 transition-all" />{' '}
       <div className="text-sm text-neutral-500 mb-1">{heading}</div>
     </Collapsible.Trigger>
-    <Collapsible.Content className="bg-neutral-800 text-white rounded text-sm p-4">{children}</Collapsible.Content>
+    <Collapsible.Content className="bg-neutral-800 text-white rounded text-sm p-4 whitespace-break-spaces">{children}</Collapsible.Content>
   </Collapsible.Root>
 );

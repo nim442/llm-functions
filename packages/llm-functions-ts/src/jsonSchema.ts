@@ -1,30 +1,33 @@
-import { z } from 'zod'
+import * as prettier from 'prettier/standalone';
+import * as prettierBabylon from 'prettier/plugins/babel';
+//@ts-ignore
+import * as esTree from 'prettier/plugins/estree';
 
-const literalSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
+import { z } from 'zod';
 
-type Literal = z.infer<typeof literalSchema>
+const literalSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
-export type Json = Literal | { [key: string]: Json } | Json[]
+type Literal = z.infer<typeof literalSchema>;
 
-const jsonSchema: z.ZodType<Json> = z.lazy(() => z.union([literalSchema, z.array(jsonSchema), z.record(jsonSchema)]))
+export type Json = Literal | { [key: string]: Json } | Json[];
 
-/**
-zu.json() is a schema that validates that a JavaScript object is JSON-compatible. This includes `string`, `number`, `boolean`, and `null`, plus `Array`s and `Object`s containing JSON-compatible types as values.
-Note: `JSON.stringify()` enforces non-circularity, but this can't be easily checked without actually stringifying the results, which can be slow.
-@example
-import { zu } from 'zod_utilz'
-const schema = zu.json()
-schema.parse( false ) // false
-schema.parse( 8675309 ) // 8675309
-schema.parse( { a: 'deeply', nested: [ 'JSON', 'object' ] } )
-// { a: 'deeply', nested: [ 'JSON', 'object' ] }
-*/
-export const json = (): z.ZodType<Json, z.ZodTypeDef, Json> => jsonSchema
-export const stringToJSONSchema = z.string().transform((str, ctx): z.infer<ReturnType<typeof json>> => {
-  try {
-    return JSON.parse(str)
-  } catch (e) {
-    ctx.addIssue({ code: 'custom', message: 'Invalid JSON' })
-    return z.NEVER
-  }
-})
+const jsonSchema: z.ZodType<Json> = z.lazy(() =>
+  z.union([literalSchema, z.array(jsonSchema), z.record(jsonSchema)])
+);
+
+export const json = (): z.ZodType<Json, z.ZodTypeDef, Json> => jsonSchema;
+export const stringToJSONSchema = z
+  .string()
+  .transform(async (str, ctx): Promise<z.infer<ReturnType<typeof json>>> => {
+    try {
+      // GPT sometimes returns a slightly malformed JSON (missing commas etc.). Prettier can help fix some of the issues with the JSON
+      const prettyJson = await prettier.format(str, {
+        parser: 'json',
+        plugins: [prettierBabylon, esTree],
+      });
+      return JSON.parse(prettyJson);
+    } catch (e) {
+      ctx.addIssue({ code: 'custom', message: (e as Error).message });
+      return z.NEVER;
+    }
+  });

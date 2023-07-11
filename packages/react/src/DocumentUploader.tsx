@@ -28,9 +28,12 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
           setRuntimeArgs({
             ...runtimeArgs,
             documents: [
-              (dataUrlReader.result as string)
-                .replace('data:', '')
-                .replace(/^.+,/, ''),
+              {
+                name: file.name,
+                file: (dataUrlReader.result as string)
+                  .replace('data:', '')
+                  .replace(/^.+,/, ''),
+              },
             ],
           });
         }
@@ -71,6 +74,7 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
           case 'url':
             return (
               <FormField
+                key={i}
                 label="Url"
                 control={
                   <Input
@@ -93,9 +97,10 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
           case 'text':
             return (
               <FormField
+                key={i}
                 label="Text"
                 control={
-                  <Input 
+                  <Input
                     value={runtimeArgs?.documents?.[i] || ('' as any)}
                     onChange={(e) =>
                       setRuntimeArgs({

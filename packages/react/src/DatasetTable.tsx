@@ -37,7 +37,7 @@ export const DatasetTable: React.FC<DatasetTableProps> = ({
     getLogs?.().then((l) => setLogs(l));
   }, []);
   if (!functionDef.dataset) return <>No dataset</>;
-  const enableTableView = useInternalStore((s) => s.enableTableView);
+
   const getExecutionFromLogs = (dataset: FunctionArgs) => {
     const l = logs.filter((d) => {
       const fn = d.functionsExecuted.find(

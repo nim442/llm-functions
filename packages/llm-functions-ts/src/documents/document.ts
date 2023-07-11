@@ -5,15 +5,25 @@ import * as pdfjs from 'pdfjs-dist';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 
 export type DocumentCommonProps = {
-  chunkingQuery?: string;
-  chunkSize?: number;
-  topK?: number;
+  chunkingStrategy?: {
+    strategy: 'textSplitter';
+    options: { chunkingQuery?: string; chunkSize?: number; topK?: number };
+  };
 };
 type CustomFetcher = (url: string) => Promise<string>;
+
 export type Document = DocumentCommonProps &
   (
-    | { type: 'pdf'; input: Buffer; customFetcher?: CustomFetcher }
-    | { type: 'text'; input: string; customFetcher?: CustomFetcher }
+    | {
+        type: 'pdf';
+        input: { name: string; file: Buffer | string };
+        customFetcher?: CustomFetcher;
+      }
+    | {
+        type: 'text';
+        input: string;
+        customFetcher?: CustomFetcher;
+      }
     | {
         type: 'url';
         input: string;
@@ -28,12 +38,16 @@ export const splitDocument = async (
 ): Promise<DocumentOutput> => {
   switch (document.type) {
     case 'pdf':
-      const buffer = Buffer.from(document.input as unknown as string, 'base64');
+      const file = document.input.file as unknown as string;
+
+      const buffer = Buffer.from(file, 'base64');
+      const bufferOrUrl = Buffer.isBuffer(buffer) ? buffer : file;
+
       //Only add this on the browser
       if (typeof window !== 'undefined') {
         pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
       }
-      const p = await pdfjs.getDocument(buffer).promise;
+      const p = await pdfjs.getDocument(bufferOrUrl).promise;
       const csv = await Promise.all(
         range(p.numPages).map(async (i) => {
           const page = await p.getPage(i + 1);
