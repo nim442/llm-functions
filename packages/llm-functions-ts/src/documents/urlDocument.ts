@@ -100,11 +100,12 @@ const _getUrl = async (
 
     const splitHtml = await c.createDocuments([body || '']);
 
-    const vectorStores = await MemoryVectorStore.fromDocuments(
-      splitHtml,
-      openAIEmbeddings
+    const createVectorStore = await memoize(
+      async () =>
+        await MemoryVectorStore.fromDocuments(splitHtml, openAIEmbeddings),
+      { normalizer: () => body || '', max: 100 }
     );
-
+    const vectorStores = await createVectorStore();
     const similaritySearch = await vectorStores.similaritySearch(
       chunkingStrategy.options.chunkingQuery || query || '',
       chunkingStrategy.options.topK || 4

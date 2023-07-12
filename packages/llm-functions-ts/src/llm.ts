@@ -647,15 +647,14 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
 
     const systemPrompt = new SystemMessage(
       `Use the DOCUMENT to answer user prompts.
-Once you have the answer, use the print function. Always call one of the provided functions
-Make sure you follow the json schema when calling the provided functions`
+Once you have the answer, use the print function. Always call one of the provided functions`
     );
     const userMessages = compact([
       queryTemplate && new HumanMessage(queryTemplate),
       documentsTemplate.length > 0 &&
         new HumanMessage(documentsTemplate.join('\n')),
       userPrompt && new HumanMessage(userPrompt),
-      new HumanMessage('Remember, always call one of the provided functions'),
+      // new HumanMessage('Remember, always call one of the provided functions'),
     ]);
 
     let chatMessages = [systemPrompt, ...userMessages];
