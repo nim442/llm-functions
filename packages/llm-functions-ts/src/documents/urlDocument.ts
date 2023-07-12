@@ -1,7 +1,7 @@
 import { Document } from './document';
 import { load } from 'cheerio';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
-import _, { memoize } from 'lodash';
+import memoize from 'memoizee';
 
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
@@ -68,14 +68,18 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
       document.returnType === 'text' ? $(element).text() : $(element).html()
     )
     .get()
-    .join('')
+    .join('\n')
     .replace(/\s+/g, ' ')
     .trim();
 
   return { body, html, url };
 }
 
-const getHtml = memoize(_getHtml, (d) => d.input);
+const getHtml = memoize(_getHtml, {
+  primitive: true,
+  max: 100,
+  normalizer: JSON.stringify,
+});
 
 const _getUrl = async (
   document: Extract<Document, { type: 'url' }>,
@@ -121,10 +125,8 @@ const _getUrl = async (
     };
 };
 
-export const getUrlDocument = memoize(
-  _getUrl,
-  (d) =>
-    d.input +
-    d.chunkingStrategy?.options.chunkSize +
-    d.chunkingStrategy?.options.topK
-);
+export const getUrlDocument = memoize(_getUrl, {
+  primitive: true,
+  normalizer: JSON.stringify,
+  max: 100,
+});

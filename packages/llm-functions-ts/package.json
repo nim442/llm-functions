@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@size-limit/preset-small-lib": "^8.2.4",
+    "@types/memoizee": "^0.4.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "size-limit": "^8.2.4",
@@ -59,6 +60,7 @@
     "immer": "latest",
     "langchain": "^0.0.106",
     "lodash": "^4.17.21",
+    "memoizee": "^0.4.15",
     "nanoid": "^3.3.6",
     "pdfjs-dist": "^2.16.105",
     "prettier": "^3.0.0",
