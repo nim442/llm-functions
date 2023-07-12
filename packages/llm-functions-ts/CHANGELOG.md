@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.20
+
+### Patch Changes
+
+- Only remove useless html tags if no chunking strategy present
+
 ## 0.0.19
 
 ### Patch Changes

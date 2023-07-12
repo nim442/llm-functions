@@ -1,5 +1,13 @@
 # @llm-functions/react
 
+## 0.0.20
+
+### Patch Changes
+
+- Only remove useless html tags if no chunking strategy present
+- Updated dependencies
+  - llm-functions-ts@0.0.20
+
 ## 0.0.19
 
 ### Patch Changes
