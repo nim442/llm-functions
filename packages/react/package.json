@@ -1,6 +1,6 @@
 {
   "name": "@llm-functions/react",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "license": "MIT",
   "main": "dist/index.mjs",
   "typings": "dist/index.d.ts",

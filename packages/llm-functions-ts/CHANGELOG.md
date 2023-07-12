@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.19
+
+### Patch Changes
+
+- Force print function call if no other functions found
+
 ## 0.0.18
 
 ### Patch Changes
