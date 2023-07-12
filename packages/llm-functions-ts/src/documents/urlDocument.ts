@@ -37,18 +37,20 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
   })();
 
   let $ = load(html);
-  // Remove comments
-  $('*')
-    .contents()
-    .each(function () {
-      if (this.type === 'comment') $(this).remove();
-    });
+  if (document.chunkingStrategy === undefined) {
+    // Remove comments
+    $('*')
+      .contents()
+      .each(function () {
+        if (this.type === 'comment') $(this).remove();
+      });
 
-  // Remove script and style tags
-  $('script').remove();
-  $('style').remove();
-  $('iframe').remove();
-  $('noscript').remove();
+    // Remove script and style tags
+    $('script').remove();
+    $('style').remove();
+    $('iframe').remove();
+    $('noscript').remove();
+  }
 
   const selectedEl = (function () {
     if (document.selector) {
