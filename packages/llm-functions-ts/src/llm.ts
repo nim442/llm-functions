@@ -334,12 +334,13 @@ export const createFn: createFn = (initDef, ...args) => {
       )
       .parameters(zodSchema)
       .implement(() => Promise.resolve('Return'));
-
-    const functions = [...(def.functions || []), printFn.def];
+    const userFunctions = def.functions || [];
+    const functions = [...userFunctions, printFn.def];
     const openAiFunctions = functions.map(toOpenAiFunction);
 
     const resp = await getOpenAiModel().call(messages, {
       functions: openAiFunctions,
+      function_call: userFunctions.length === 0 ? { name: 'print' } : 'auto',
     });
     resp._getType;
     messages = [...messages, resp];
