@@ -1,5 +1,13 @@
 # @llm-functions/react
 
+## 0.0.18
+
+### Patch Changes
+
+- patch
+- Updated dependencies
+  - llm-functions-ts@0.0.18
+
 ## 0.0.17
 
 ### Patch Changes
