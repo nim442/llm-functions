@@ -78,9 +78,9 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
 }
 
 const getHtml = memoize(_getHtml, {
-  primitive: true,
   max: 100,
-  normalizer: JSON.stringify,
+  normalizer: ([a]) =>
+    JSON.stringify(a.input + a.selector + a.returnType + a.chunkingStrategy),
 });
 
 const _getUrl = async (
@@ -101,12 +101,17 @@ const _getUrl = async (
     });
 
     const splitHtml = await c.createDocuments([body || '']);
-
     const createVectorStore = await memoize(
       async () =>
         await MemoryVectorStore.fromDocuments(splitHtml, openAIEmbeddings),
-      { normalizer: () => body || '', max: 100 }
+      {
+        normalizer: () => {
+          return body || '';
+        },
+        max: 100,
+      }
     );
+
     const vectorStores = await createVectorStore();
     const similaritySearch = await vectorStores.similaritySearch(
       chunkingStrategy.options.chunkingQuery || query || '',
@@ -129,7 +134,9 @@ const _getUrl = async (
 };
 
 export const getUrlDocument = memoize(_getUrl, {
-  primitive: true,
-  normalizer: JSON.stringify,
+  normalizer: ([d]) =>
+    d.input +
+    d.chunkingStrategy?.options.chunkSize +
+    d.chunkingStrategy?.options.topK,
   max: 100,
 });
