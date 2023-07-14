@@ -1,3 +1,4 @@
 packages:
   - "packages/*"
+  - "packages/react/example"
   - "docs"

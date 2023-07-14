@@ -10,7 +10,8 @@
     "test": "turbo run test",
     "test:watch": "turbo run test:watch",
     "typecheck": "turbo run typecheck",
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "npx only-allow pnpm",
+    "dev:example": "turbo run dev --filter=example --filter=llm-functions-ts "
   },
   "engines": {
     "node": ">=14.0.0"
