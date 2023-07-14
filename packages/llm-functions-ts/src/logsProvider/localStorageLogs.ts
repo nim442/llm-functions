@@ -1,6 +1,19 @@
 import { Execution, LogsProvider } from '../llm';
 
 export const localStorageLogs: LogsProvider = {
+  getLogsByFunctionId: (id) => {
+    if (typeof window !== 'undefined') {
+      const prevLogs: Execution<any>[] =
+        JSON.parse(localStorage?.getItem('llm-functions-logs') || 'null') || [];
+      const filteredLogs = prevLogs.filter((s) =>
+        s.functionsExecuted.find((f) => f.functionDef.id === id)
+      );
+      return Promise.resolve(filteredLogs);
+    } else {
+      return Promise.resolve([]);
+    }
+  },
+
   saveLog: (e) => {
     if (typeof window !== 'undefined') {
       const prevLogs: Execution<any>[] =
@@ -16,11 +29,11 @@ export const localStorageLogs: LogsProvider = {
   },
   getLogs: () => {
     if (typeof window !== 'undefined') {
-      return (
+      return Promise.resolve(
         JSON.parse(localStorage?.getItem('llm-functions-logs') || 'null') || []
       );
     } else {
-      return [];
+      return Promise.resolve([]);
     }
   },
 };

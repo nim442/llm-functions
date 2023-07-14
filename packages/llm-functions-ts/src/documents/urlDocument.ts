@@ -8,33 +8,39 @@ import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { getApiKeyFromLocalStorage } from '../utils';
 import { DocumentOutput } from '../action/documentAction';
 
-async function _getHtml(document: Extract<Document, { type: 'url' }>) {
+const scrape = async function (
+  url: string,
+  customFetcher: Extract<Document, { type: 'url' }>['customFetcher']
+) {
+  if (customFetcher === 'browserless') {
+    return fetch(
+      `https://chrome.browserless.io/content?token=${process.env.BROWSERLESS_API_TOKEN}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url,
+          waitFor: 4000,
+        }),
+      }
+    ).then((r) => r.text());
+  }
+  return customFetcher
+    ? await customFetcher(url)
+    : await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+        },
+      }).then((r) => r.text());
+};
+const memoizedScrape = memoize(scrape, { max: 50 });
+
+export async function getHtml(document: Extract<Document, { type: 'url' }>) {
   const url = document.input;
-  const html = await (async function () {
-    if (document.customFetcher === 'browserless') {
-      return fetch(
-        `https://chrome.browserless.io/content?token=${process.env.BROWSERLESS_API_TOKEN}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url,
-            waitFor: 4000,
-          }),
-        }
-      ).then((r) => r.text());
-    }
-    return document.customFetcher
-      ? await document.customFetcher(url)
-      : await fetch(url, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-          },
-        }).then((r) => r.text());
-  })();
+  const html = await memoizedScrape(url, document.customFetcher);
 
   let $ = load(html);
   if (document.chunkingStrategy === undefined) {
@@ -61,7 +67,7 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
       });
       return selectedEl;
     } else {
-      return $.root();
+      return $('body');
     }
   })();
 
@@ -77,13 +83,7 @@ async function _getHtml(document: Extract<Document, { type: 'url' }>) {
   return { body, html, url };
 }
 
-const getHtml = memoize(_getHtml, {
-  max: 100,
-  normalizer: ([a]) =>
-    JSON.stringify(a.input + a.selector + a.returnType + a.chunkingStrategy),
-});
-
-const _getUrl = async (
+export const getUrlDocument = async (
   document: Extract<Document, { type: 'url' }>,
   query: string | undefined
 ): Promise<DocumentOutput> => {
@@ -101,18 +101,11 @@ const _getUrl = async (
     });
 
     const splitHtml = await c.createDocuments([body || '']);
-    const createVectorStore = await memoize(
-      async () =>
-        await MemoryVectorStore.fromDocuments(splitHtml, openAIEmbeddings),
-      {
-        normalizer: () => {
-          return body || '';
-        },
-        max: 100,
-      }
+    const vectorStores = await MemoryVectorStore.fromDocuments(
+      splitHtml,
+      openAIEmbeddings
     );
 
-    const vectorStores = await createVectorStore();
     const similaritySearch = await vectorStores.similaritySearch(
       chunkingStrategy.options.chunkingQuery || query || '',
       chunkingStrategy.options.topK || 4
@@ -132,11 +125,3 @@ const _getUrl = async (
       chunks: [body || ''],
     };
 };
-
-export const getUrlDocument = memoize(_getUrl, {
-  normalizer: ([d]) =>
-    d.input +
-    d.chunkingStrategy?.options.chunkSize +
-    d.chunkingStrategy?.options.topK,
-  max: 100,
-});

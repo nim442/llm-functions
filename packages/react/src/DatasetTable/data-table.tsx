@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '../components/table';
 import React from 'react';
-import { Execution, FunctionArgs } from 'llm-functions-ts';
+import { FunctionArgs } from 'llm-functions-ts';
 import { pick, uniq } from 'lodash';
 import { flatten } from 'flat';
 import { unparse } from 'papaparse';
@@ -34,7 +34,7 @@ export function DataTable<TData, TValue>({
   data,
   evaluate,
 }: DataTableProps<TData, TValue> & {
-  evaluate: (dataset: FunctionArgs) => Promise<Execution>;
+  evaluate: (dataset: FunctionArgs) => Promise<void>;
 }) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 

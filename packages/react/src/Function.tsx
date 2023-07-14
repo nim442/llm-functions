@@ -1,17 +1,8 @@
 'use client';
 import './index.css';
 
-import { CommandLineIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import {
-  FunctionArgs,
-  ProcedureBuilderDef,
-  Execution,
-  createFn,
-  Registry,
-  LogsProvider,
-} from 'llm-functions-ts';
-import { parseFString } from 'llm-functions-ts';
-import { useState } from 'react';
+import { CommandLineIcon } from '@heroicons/react/24/outline';
+import { ProcedureBuilderDef, Registry } from 'llm-functions-ts';
 
 import classNames from 'classnames';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -23,6 +14,7 @@ import * as Switch from '@radix-ui/react-switch';
 import { useInternalStore } from './internalStore';
 import { Playground } from './Playground';
 import { DatasetTable } from './DatasetTable';
+import { useQuery } from 'react-query';
 
 export const Button: React.FC<
   React.ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm' | 'md' }
@@ -47,25 +39,21 @@ export const Button: React.FC<
 };
 
 export type FunctionProps = {
-  logs?: Execution<any>[];
   functionDef: ProcedureBuilderDef;
-  evaluateDataset?: Registry['evaluateDataset'];
-  evaluateFn?: Registry['evaluateFn'];
-  getLogs?: LogsProvider['getLogs'];
+  registry: Registry;
 } & Partial<Store>;
 
 export const Function: React.FC<FunctionProps> = ({
   functionDef,
-  evaluateDataset,
-  evaluateFn,
+  registry,
   ...props
 }) => {
   const id = functionDef.id;
+  const { data: logs } = useQuery(
+    ['logs', id],
+    () => registry.logsProvider?.getLogsByFunctionId(id || '')
+  );
   if (!id) return <>'Missing id'</>;
-
-  const [loading, setLoading] = useState<boolean>(false);
-
-  const [dataset, setDataset] = useState<Execution<any>[]>();
 
   const selectedTab = useStore((s) => props.selectedTab || s.selectedTab);
   const setSelectedTab = useStore(
@@ -76,12 +64,6 @@ export const Function: React.FC<FunctionProps> = ({
   const toggleEnableTableView = useInternalStore(
     (s) => s.toggleEnableTableView
   );
-  const handleEvaluateDatasetClick = async () => {
-    if (evaluateDataset) {
-      const response = await evaluateDataset(id);
-      setDataset(response);
-    }
-  };
 
   return (
     <Tabs.Root
@@ -139,7 +121,10 @@ export const Function: React.FC<FunctionProps> = ({
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
         value={'PLAYGROUND' satisfies Store['selectedTab']}
       >
-        <Playground functionDef={functionDef} evaluateFn={evaluateFn} />
+        <Playground
+          functionDef={functionDef}
+          evaluateFn={registry.evaluateFn}
+        />
       </Tabs.Content>
       <Tabs.Content
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
@@ -148,9 +133,9 @@ export const Function: React.FC<FunctionProps> = ({
         {functionDef.dataset ? (
           <div className="w-full">
             <DatasetTable
-              evaluateFn={evaluateFn}
+              evaluateFn={registry.evaluateFn}
               functionDef={functionDef}
-              getLogs={props.getLogs}
+              getLogs={registry.logsProvider?.getLogs}
             />
           </div>
         ) : (
@@ -163,7 +148,7 @@ export const Function: React.FC<FunctionProps> = ({
         className="flex overflow-auto h-full data-[state='inactive']:hidden"
         value={'LOGS' satisfies Store['selectedTab']}
       >
-        <LogsTable data={props.logs} getLogs={props.getLogs} />
+        <LogsTable data={logs} />
       </Tabs.Content>
     </Tabs.Root>
   );

@@ -98,7 +98,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   instructions?: string;
   dataset?: FunctionArgs[];
   mapFns?: (((a: any) => any) | AiFunction<any>)[];
-  verify?: (a: Execution<any>, b: FunctionArgs) => boolean;
+  verify?: (a: Execution<unknown>, b: FunctionArgs) => boolean;
   sequences?: Sequence[];
 };
 interface GetName extends Fn {
@@ -293,14 +293,12 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
 
 export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
-  onExecutionUpdate?: (
-    execution: Execution<ProcedureParams['_output']>
-  ) => void,
+  onExecutionUpdate?: (execution: Execution<unknown>) => void,
   onCreated?: (fnDef: ProcedureBuilderDef) => void
 ) => ProcedureBuilder<TParams>;
 
 export const createFn: createFn = (initDef, ...args) => {
-  let execution: Execution<any> | undefined;
+  let execution: Execution<unknown> | undefined;
   let functionExecutionId: string;
   const [onExecutionUpdate, onCreated] = args;
   const def = {
@@ -561,7 +559,7 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
             }
           : e
       ),
-    } as Execution<any>;
+    } as Execution<unknown>;
     if (onExecutionUpdate && execution) {
       onExecutionUpdate(execution);
     }
@@ -570,7 +568,7 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
   const run = async (
     arg: FunctionArgs,
     _executionId?: string
-  ): Promise<Execution<any>> => {
+  ): Promise<Execution<unknown>> => {
     const executionId = createExecution(arg, _executionId);
 
     const {
@@ -827,22 +825,23 @@ export const safeParseAiFn = <T>(fn: T): AiFunction<T> | undefined => {
 export const llmFunction = createFn();
 
 export type LogsProvider = {
-  getLogs: () => Promise<Execution<any>[]>;
-  saveLog: (exec: Execution<any>) => void;
+  getLogsByFunctionId: (functionId: string) => Promise<Execution<unknown>[]>;
+  getLogs: () => Promise<Execution<unknown>[]>;
+  saveLog: (exec: Execution<unknown>) => void;
 };
+
 export type Registry = {
-  executionLogs: Execution<any>[];
   logsProvider?: LogsProvider;
   getFunctionsDefs: () => ProcedureBuilderDef[];
   evaluateDataset?: (
     idx: string,
-    callback?: (ex: Execution<any>) => void
-  ) => Promise<Execution<any>[]>;
+    callback?: (ex: Execution<unknown>) => void
+  ) => Promise<Execution<unknown>[]>;
   evaluateFn?: (
     idx: string,
     args: FunctionArgs,
-    callback?: (ex: Execution<any>) => void
-  ) => Promise<Execution<any>>;
+    callback?: (ex: Execution<unknown>) => void
+  ) => Promise<Execution<unknown>>;
 };
 
 export const initLLmFunction = (
@@ -851,9 +850,9 @@ export const initLLmFunction = (
   registry: Registry;
   llmFunction: ProcedureBuilder<ProcedureParams>;
 } => {
-  let executionLogs: Execution<any>[] = [];
+  let executionLogs: Execution<unknown>[] = [];
   logsProvider?.getLogs().then((l) => (executionLogs = l));
-  const logHandler = (l: Execution<string>) => {
+  const logHandler = (l: Execution<unknown>) => {
     const existingLog = executionLogs.find((e) => e.id === l.id);
 
     if (!existingLog) {
@@ -889,7 +888,6 @@ export const initLLmFunction = (
 
   return {
     registry: {
-      executionLogs,
       logsProvider: logsProvider,
       getFunctionsDefs: () => functionsDefs,
       evaluateFn: async (idx, args, respCallback) => {

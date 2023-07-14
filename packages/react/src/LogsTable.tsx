@@ -14,19 +14,28 @@ import { useEffect, useState } from 'react';
 
 export const LogsTable: React.FC<{
   data?: Execution<any>[];
-  getLogs?: LogsProvider['getLogs'];
-}> = ({ data = [], getLogs }) => {
-  const [logs, setLogs] = useState(data);
+}> = ({ data }) => {
   const enableTableView = useInternalStore((s) => s.enableTableView);
   const [fn, setFn] = useState<{
     functionDef: ProcedureBuilderDef;
     inputs: FunctionArgs;
     execution: Execution<any>;
   }>();
-  
-  useEffect(() => {
-    getLogs?.().then((l) => setLogs(l));
-  }, []);
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center w-full">
+        <div className="text-white">Loading </div>;
+        <ArrowPathIcon className="w-4 h-4 animate-spin text-white" />
+      </div>
+    );
+  }
+  if (data.length === 0)
+    return (
+      <div className="flex items-center justify-center w-full">
+        <div className="text-white">No logs found for this function</div>;
+      </div>
+    );
   return (
     <Dialog.Root
       open={Boolean(fn)}
@@ -34,7 +43,7 @@ export const LogsTable: React.FC<{
     >
       <div className="w-full">
         <div className="divide-y divide-neutral-800">
-          {logs.map((_d, i) => {
+          {data.map((_d, i) => {
             const d = _d.functionsExecuted[0];
             return (
               <div key={i} className="flex gap-4 px-4 py-4">
@@ -42,9 +51,7 @@ export const LogsTable: React.FC<{
                   <div className="text-sm font-semibold text-white">
                     Evaluation
                   </div>
-                  <div className="text-neutral-500 text-sm">
-                    {_d.id}
-                  </div>
+                  <div className="text-neutral-500 text-sm">{_d.id}</div>
                   <Dialog.Trigger asChild>
                     <button
                       onClick={() => {

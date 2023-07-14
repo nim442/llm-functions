@@ -6,7 +6,6 @@ import {
   Registry,
 } from 'llm-functions-ts';
 
-import { useInternalStore } from './internalStore';
 import { isEqual } from 'lodash';
 
 import { useEffect, useState } from 'react';
@@ -75,91 +74,13 @@ export const DatasetTable: React.FC<DatasetTableProps> = ({
         <div className="divide-y divide-neutral-800">
           <DataTable
             evaluate={async (dataset: FunctionArgs) => {
-              const e = await evaluateFn?.(functionDef.id || '', dataset);
+              await evaluateFn?.(functionDef.id || '', dataset);
               const logs = await getLogs?.();
               logs && setLogs(logs);
-              return e;
             }}
             columns={columns}
             data={data}
           />
-          {/* {functionDef.dataset.map((dataset, i) => {
-            const executions = getExecutionFromLogs(dataset);
-            return <DataTable columns={columns} data={executions} />;
-            // return (
-            //   <div key={i} className="flex gap-4 px-4 py-4">
-            //     <div className="flex-1">
-            //       <div className="text-sm font-semibold text-white">Input</div>
-            //       <div className="text-white">
-            //         {
-            //           <Inspector
-            //             expandLevel={10}
-            //             table={enableTableView}
-            //             data={dataset}
-            //           />
-            //         }
-            //       </div>
-            //     </div>
-            //     <div className="flex-1">
-            //       <div className="text-sm font-semibold text-white">
-            //         Executions
-            //       </div>
-            //       <div className="text-white">
-            //         {executions ? (
-            //           executions.map((execution) => (
-            //             <div>
-            //               <Dialog.Trigger asChild>
-            //                 <button
-            //                   onClick={() => {
-            //                     setFn({
-            //                       functionDef: functionDef,
-            //                       inputs: dataset,
-            //                       execution: execution,
-            //                     });
-            //                   }}
-            //                   className="text-neutral-500 text-xs underline"
-            //                 >
-            //                   View
-            //                 </button>
-            //               </Dialog.Trigger>
-            //               {execution.verified === true ? (
-            //                 <div className="text-xs text-green-500">
-            //                   Verified
-            //                 </div>
-            //               ) : execution.verified === false ? (
-            //                 <div className="text-xs text-red-400">
-            //                   Failed verification
-            //                 </div>
-            //               ) : (
-            //                 ''
-            //               )}
-            //               <Inspector
-            //                 expandLevel={10}
-            //                 table={enableTableView}
-            //                 data={execution.finalResponse}
-            //               ></Inspector>
-            //             </div>
-            //           ))
-            //         ) : (
-            //           <div className="text-sm text-neutral-500">Never ran</div>
-            //         )}
-            //       </div>
-            //     </div>
-            //     <div className="flex-1">
-            //       <Button
-            //         onClick={async () => {
-            //           await evaluateFn?.(functionDef.id || '', dataset);
-            //           const logs = await getLogs?.();
-            //           logs && setLogs(logs);
-            //         }}
-            //         className="!w-fit"
-            //       >
-            //         Evaluate
-            //       </Button>
-            //     </div>
-            //   </div>
-            // );
-          })} */}
         </div>
         <Dialog.Portal>
           <Dialog.Overlay className="bg-black/70 fixed inset-0" />
