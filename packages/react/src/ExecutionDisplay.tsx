@@ -11,6 +11,7 @@ import { Inspector } from './Inspector';
 import { ArrowPathIcon, CommandLineIcon } from '@heroicons/react/24/outline';
 import classNames from 'classnames';
 import { useInternalStore } from './internalStore';
+import { CallingFunctionAction } from './components/CallingFunctionAction';
 
 export type ResponseProps = { response: string };
 export const Response: React.FC<ResponseProps> = ({ response }) => {
@@ -98,8 +99,8 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
                                         Executing function
                                       </div>
                                       <div className="text-white flex items-center text-sm gap-1">
-                                        <CommandLineIcon className="w-4 h-4" />{' '}
-                                        {t.functionDef.name}{' '}
+                                        <CommandLineIcon className="w-4 h-4" />
+                                        {t.functionDef.name}
                                         <a className="text-xs text-neutral-500 underline">
                                           ({t.functionDef.id?.slice(0, 6)})
                                         </a>
@@ -112,10 +113,10 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
                                       <div className=" text-xs font-semibold  text-neutral-500">
                                         Calling external function
                                       </div>
-                                      <div className="text-white flex items-center text-sm gap-1">
-                                        <CommandLineIcon className="w-4 h-4" />{' '}
-                                        {t.input.name}{' '}
-                                      </div>
+                                      <CallingFunctionAction
+                                        functionName={t.input.name}
+                                        params={t.input.parameters}
+                                      />
                                     </div>
                                   );
                                 case 'query':
@@ -221,17 +222,14 @@ function renderAction(t: Trace[0]): React.ReactElement {
                                 case 'functionCall':
                                   return (
                                     <div>
-                                      <div className="text-neutral-500 text-sm font-sm mb-1">
-                                        Calling function with the following
-                                        params
-                                      </div>
-                                      <div className="bg-neutral-800 p-4 text-white text-sm whitespace-break-spaces rounded">
-                                        <Inspector
-                                          expandLevel={10}
-                                          table={false}
-                                          data={t.response.output.data}
-                                        />
-                                      </div>
+                                      <CallingFunctionAction
+                                        functionName={
+                                          t.response.output.data.name
+                                        }
+                                        params={
+                                          t.response.output.data.parameters
+                                        }
+                                      />
                                     </div>
                                   );
                                 case 'response':

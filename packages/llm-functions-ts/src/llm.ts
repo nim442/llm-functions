@@ -401,7 +401,13 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
           updateTrace(id, {
             response: {
               type: 'success',
-              output: { type: 'functionCall', data: argument.data },
+              output: {
+                type: 'functionCall',
+                data: {
+                  ...pick(fn, ['name', 'description']),
+                  parameters: argument.data,
+                },
+              },
             },
           });
           const id2 = createTrace({
