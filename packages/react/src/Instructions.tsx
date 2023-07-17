@@ -1,5 +1,5 @@
-import { FunctionArgs } from 'llm-functions-ts';
-import { ParsedFStringNode } from 'llm-functions-ts';
+import { FunctionArgs } from 'llm-functions';
+import { ParsedFStringNode } from 'llm-functions';
 
 export type InstructionsProps = {
   instructions: ParsedFStringNode[];

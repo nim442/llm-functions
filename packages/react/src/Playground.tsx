@@ -6,7 +6,7 @@ import {
   Registry,
   createFn,
   parseFString,
-} from 'llm-functions-ts';
+} from 'llm-functions';
 import * as Form from '@radix-ui/react-form';
 import {
   CpuChipIcon,

@@ -1,6 +1,6 @@
 {
   "name": "@llm-functions/react",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "license": "MIT",
   "main": "dist/index.mjs",
   "typings": "dist/index.d.ts",
@@ -21,7 +21,7 @@
     "lint": ""
   },
   "peerDependencies": {
-    "llm-functions-ts": "*",
+    "llm-functions": "*",
     "react": ">=16",
     "react-dom": ">=16"
   },

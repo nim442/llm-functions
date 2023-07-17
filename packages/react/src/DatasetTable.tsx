@@ -4,7 +4,7 @@ import {
   LogsProvider,
   ProcedureBuilderDef,
   Registry,
-} from 'llm-functions-ts';
+} from 'llm-functions';
 
 import { isEqual } from 'lodash';
 

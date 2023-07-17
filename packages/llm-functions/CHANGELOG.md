@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.21
+
+### Patch Changes
+
+- Use vercel ai sdk for openai calls
+
 ## 0.0.20
 
 ### Patch Changes

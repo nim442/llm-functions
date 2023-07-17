@@ -1,16 +1,16 @@
 
 ## Installation
 
-To install llm-functions-ts, you can use npm or yarn:
+To install llm-functions, you can use npm or yarn:
 
 ```shell
-npm install llm-functions-ts
+npm install llm-functions
 ```
 
 or
 
 ```shell
-yarn add llm-functions-ts
+yarn add llm-functions
 ```
 
 ## LLM Function
@@ -22,7 +22,7 @@ An LLM Function is composed of a few parts. Each part gives you additional funct
 To start, let's create a very simple function
 
 ```typescript
-import { llmFunction } from "llm-functions-ts";
+import { llmFunction } from "llm-functions";
 const simpleFunction = llmFunction
   .name("A function that does nothing")
   .create();
@@ -32,7 +32,7 @@ We created the simplest function there can be. The function signature is `() => 
 Let's call it to see what happens.
 
 ```typescript
-import { llmFunction } from "llm-functions-ts";
+import { llmFunction } from "llm-functions";
 const functionResult = await simpleFunction();
 console.log(functionResult);
 // "There is no prompt provided. Please provide a prompt for me to generate output."

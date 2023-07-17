@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '../components/table';
 import React from 'react';
-import { FunctionArgs } from 'llm-functions-ts';
+import { FunctionArgs } from 'llm-functions';
 import { pick, uniq } from 'lodash';
 import { flatten } from 'flat';
 import { unparse } from 'papaparse';

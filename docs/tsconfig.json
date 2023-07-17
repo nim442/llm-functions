@@ -18,6 +18,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "../packages/llm-functions-ts/examples/src/examples.ts", "../packages/llm-functions-ts/src/components/exampleResponse.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "../packages/llm-functions/examples/src/examples.ts", "../packages/llm-functions/src/components/exampleResponse.ts"],
   "exclude": ["node_modules"]
 }

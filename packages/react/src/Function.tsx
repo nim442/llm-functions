@@ -2,7 +2,7 @@
 import './index.css';
 
 import { CommandLineIcon } from '@heroicons/react/24/outline';
-import { ProcedureBuilderDef, Registry } from 'llm-functions-ts';
+import { ProcedureBuilderDef, Registry } from 'llm-functions';
 
 import classNames from 'classnames';
 import * as Tabs from '@radix-ui/react-tabs';

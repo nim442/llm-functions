@@ -1,4 +1,4 @@
-import { FunctionArgs, DocumentWithoutInput } from 'llm-functions-ts';
+import { FunctionArgs, DocumentWithoutInput } from 'llm-functions';
 import { FileWithPath, useDropzone } from 'react-dropzone';
 
 import { FormField, Input } from './FormField';

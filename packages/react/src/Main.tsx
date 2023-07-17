@@ -2,7 +2,7 @@
 import './index.css';
 
 import { CommandLineIcon } from '@heroicons/react/24/outline';
-import { Registry } from 'llm-functions-ts';
+import { Registry } from 'llm-functions';
 
 import classNames from 'classnames';
 

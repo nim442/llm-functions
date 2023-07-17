@@ -3,7 +3,7 @@ import {
   FunctionArgs,
   LogsProvider,
   ProcedureBuilderDef,
-} from 'llm-functions-ts';
+} from 'llm-functions';
 import { Inspector } from './Inspector';
 import { useInternalStore } from './internalStore';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';

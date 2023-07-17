@@ -1,8 +1,8 @@
-import { Execution, Trace } from 'llm-functions-ts';
+import { Execution, Trace } from 'llm-functions';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { vs2015 as theme } from 'react-syntax-highlighter/dist/cjs/styles/hljs';
 import { useState } from 'react';
-import { jsonSchema } from 'llm-functions-ts';
+import { jsonSchema } from 'llm-functions';
 import { Parameters } from './Parameters';
 
 import { Action } from './Action';

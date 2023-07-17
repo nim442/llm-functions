@@ -1,6 +1,6 @@
 {
-  "name": "llm-functions-ts",
-  "version": "0.0.20",
+  "name": "llm-functions",
+  "version": "0.0.21",
   "module": "true",
   "license": "MIT",
   "main": "dist/index.mjs",

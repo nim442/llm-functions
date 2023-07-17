@@ -9,7 +9,7 @@ To define the output schema, you can pass a zod schema as an argument to the out
 
 ```typescript
 import { z } from "zod";
-import { createAiFunction } from "llm-functions-ts";
+import { createAiFunction } from "llm-functions";
 
 const outputSchema = z.object({
   countryNames: z.array(z.string()),
@@ -32,4 +32,4 @@ This allows you to query an LLM and return a data structure that conforms to the
 
 ## Validation of Response with Zod Schema
 
-**llm-functions-ts** ensures that the response from the LLM function adheres to the specified output schema. When a response is received, it is validated against the output schema using the Zod library. If the response fails the validation, indicating that it doesn't match the expected structure, llm-functions-ts will loop back the response and the validation error to the LLM to obtain a new response that conforms to the defined schema.
+**llm-functions** ensures that the response from the LLM function adheres to the specified output schema. When a response is received, it is validated against the output schema using the Zod library. If the response fails the validation, indicating that it doesn't match the expected structure, llm-functions will loop back the response and the validation error to the LLM to obtain a new response that conforms to the defined schema.

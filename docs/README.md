@@ -1,1 +1,1 @@
-[Docs]('llm-functions-ts.dev')
+[Docs]('llm-functions.dev')

@@ -1,7 +1,7 @@
 'use client';
 
 import { ColumnDef, Row, createColumnHelper } from '@tanstack/react-table';
-import { Execution, FunctionArgs } from 'llm-functions-ts';
+import { Execution, FunctionArgs } from 'llm-functions';
 import { Inspector } from '../Inspector';
 import {
   ArrowSmallDownIcon,
