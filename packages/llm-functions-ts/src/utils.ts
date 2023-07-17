@@ -105,3 +105,9 @@ export const getApiKeyFromLocalStorage = () => {
 export type Simplify<TType> = TType extends any[] | Date
   ? TType
   : { [K in keyof TType]: TType[K] };
+
+export type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;

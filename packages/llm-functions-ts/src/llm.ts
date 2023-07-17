@@ -1,12 +1,21 @@
 import { ChatOpenAI } from 'langchain/chat_models/openai';
+import {
+  ChatCompletionRequestMessage,
+  ChatCompletionResponseMessage,
+  ChatCompletionResponseMessageRoleEnum,
+  Configuration,
+  CreateCompletionRequest,
+  OpenAIApi,
+} from 'openai-edge';
 
+import { OpenAIStream, StreamingTextResponse } from 'ai';
 import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
 import { z } from 'zod';
-import { generateErrorMessage } from 'zod-error';
 
 import { Document, splitDocument } from './documents/document';
 import { stringToJSONSchema } from './jsonSchema';
 import {
+  DeepPartial,
   ExtractTemplateParams,
   Simplify,
   getApiKeyFromLocalStorage,
@@ -14,18 +23,13 @@ import {
   mergeOrUpdate,
 } from './utils';
 
-import _, { compact, pick } from 'lodash';
+import _, { compact, has, pick } from 'lodash';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
 
 import { cyrb53 } from './cyrb53';
-import {
-  BaseMessage,
-  HumanMessage,
-  SystemMessage,
-  FunctionMessage,
-} from 'langchain/schema';
+
 import { DocumentAction } from './action/documentAction';
 import {
   FunctionDef,
@@ -33,7 +37,12 @@ import {
   openAifunctionCalling,
   toOpenAiFunction,
 } from './functions';
-import { Message, MessageType, fromLangChainMessage } from './Message';
+import {
+  Message,
+  MessageType,
+  fromLangChainMessage,
+  streamToPromise,
+} from './Message';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 type Parser = z.ZodSchema;
@@ -75,9 +84,11 @@ export type Execution<T = unknown> = {
     inputs: FunctionArgs;
     trace: Trace;
     finalResponse?: T;
+    partialFinalResponse?: DeepPartial<T>;
     functionDef: ProcedureBuilderDef;
   }[];
   finalResponse?: T;
+  partialFinalResponse?: DeepPartial<T>;
   verified?: boolean;
 };
 
@@ -91,7 +102,7 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   description?: string;
   output?: Parser;
   tsOutputString?: string;
-  model?: ConstructorParameters<typeof ChatOpenAI>[number];
+  model?: Pick<CreateCompletionRequest, 'model' | 'temperature' | 'top_p'>;
   documents?: DocumentWithoutInput[];
   functions?: FunctionDef[];
   query?: { queryInput: boolean; fn: QueryFn<I, O> };
@@ -303,23 +314,25 @@ export const createFn: createFn = (initDef, ...args) => {
   const [onExecutionUpdate, onCreated] = args;
   const def = {
     model: {
-      modelName: 'gpt-3.5-turbo-16k',
+      model: 'gpt-3.5-turbo-16k',
       temperature: 0.7,
-      maxTokens: -1,
     },
     ...initDef,
   };
-  const getOpenAiModel = () =>
-    new ChatOpenAI({
-      ...def.model,
-      openAIApiKey:
+
+  const getOpenAiModel = () => {
+    const config = new Configuration({
+      apiKey:
         process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
     });
+    return new OpenAIApi(config);
+  };
+
   const callZodOutput = async <T>(
-    messages: BaseMessage[],
+    messages: ChatCompletionRequestMessage[],
     zodSchema: z.ZodSchema<T>,
     retries: number = 0
-  ): Promise<[T, BaseMessage[]]> => {
+  ): Promise<[T, ChatCompletionResponseMessage[]]> => {
     const id = createTrace({
       action: 'calling-open-ai',
       messages: messages.map(fromLangChainMessage),
@@ -332,41 +345,70 @@ export const createFn: createFn = (initDef, ...args) => {
       )
       .parameters(zodSchema)
       .implement(() => Promise.resolve('Return'));
+
     const userFunctions = def.functions || [];
     const functions = [...userFunctions, printFn.def];
     const openAiFunctions = functions.map(toOpenAiFunction);
 
-    const resp = await getOpenAiModel().call(messages, {
+    const respStream = await getOpenAiModel().createChatCompletion({
+      ...def.model,
+      messages,
+      stream: true,
       functions: openAiFunctions,
       function_call: userFunctions.length === 0 ? { name: 'print' } : 'auto',
     });
-    resp._getType;
+
+    const stream = OpenAIStream(respStream);
+
+    const resp = await streamToPromise(stream, (fnCall) => {
+      if (execution) {
+        const executionWithPartialResponse = {
+          ...execution,
+          functionsExecuted: execution.functionsExecuted.map((e) =>
+            e.functionExecutionId === functionExecutionId
+              ? {
+                  ...e,
+                  partialFinalResponse: fnCall.arguments,
+                }
+              : e
+          ),
+          partialFinalResponse: fnCall.arguments,
+        };
+        execution = executionWithPartialResponse;
+
+        onExecutionUpdate?.(execution);
+      }
+    });
+
     messages = [...messages, resp];
 
     const functionCallSchema = z.object({
       name: z.string(),
       arguments: stringToJSONSchema,
     });
-    if (!resp.additional_kwargs.function_call) {
+    if (!resp.function_call) {
       updateTrace(id, {
         response: {
           type: 'error',
-          error: `No function call found, Got text instead: ${resp.text}`,
+          error: `No function call found, Got text instead: ${resp.content}`,
         },
       });
       return callZodOutput(
         [
           ...messages,
-          new HumanMessage(`Please use the print function to respond. print function has the following scheme:
+          {
+            role: ChatCompletionResponseMessageRoleEnum.User,
+            content: `Please use the print function to respond. print function has the following scheme:
 ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}         
-`),
+`,
+          },
         ],
         zodSchema,
         retries + 1
       );
     }
     const functionCallJson = await functionCallSchema.safeParseAsync(
-      resp.additional_kwargs.function_call
+      resp.function_call
     );
 
     if (functionCallJson.success) {
@@ -395,7 +437,14 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
 
           return [
             response,
-            [...messages, new FunctionMessage('Success', 'print')],
+            [
+              ...messages,
+              {
+                role: 'function',
+                content: `Success`,
+                name: 'print',
+              },
+            ],
           ];
         } else {
           updateTrace(id, {
@@ -426,7 +475,11 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
           return callZodOutput(
             [
               ...messages,
-              new FunctionMessage(fnResponse || 'No response', fn.name),
+              {
+                role: 'function',
+                content: fnResponse || 'No response',
+                name: fn.name,
+              },
             ],
             zodSchema,
             retries
@@ -462,7 +515,7 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
       updateTrace(id, {
         response: {
           type: 'zod-error',
-          output: resp.additional_kwargs.function_call,
+          output: resp.function_call,
           error: functionCallJson.error.message,
         },
       });
@@ -650,19 +703,31 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
         })
       : z.string();
 
-    const systemPrompt = new SystemMessage(
-      `Use the DOCUMENT to answer user prompts.
-Once you have the answer, use the print function. Always call one of the provided functions`
-    );
+    const systemPrompt = {
+      role: ChatCompletionResponseMessageRoleEnum.System,
+      content: `Use the DOCUMENT to answer user prompts.
+Once you have the answer, use the print function. Always call one of the provided functions`,
+    };
+
     const userMessages = compact([
-      queryTemplate && new HumanMessage(queryTemplate),
-      documentsTemplate.length > 0 &&
-        new HumanMessage(documentsTemplate.join('\n')),
-      userPrompt && new HumanMessage(userPrompt),
-      // new HumanMessage('Remember, always call one of the provided functions'),
+      queryTemplate && {
+        role: ChatCompletionResponseMessageRoleEnum.User,
+        content: queryTemplate,
+      },
+      documentsTemplate.length > 0 && {
+        role: ChatCompletionResponseMessageRoleEnum.User,
+        content: documentsTemplate.join('\n'),
+      },
+      userPrompt && {
+        role: ChatCompletionResponseMessageRoleEnum.User,
+        content: userPrompt,
+      },
     ]);
 
-    let chatMessages = [systemPrompt, ...userMessages];
+    let chatMessages: ChatCompletionResponseMessage[] = [
+      systemPrompt,
+      ...userMessages,
+    ];
 
     const [aiMessage, messages] = await callZodOutput(chatMessages, zodSchema);
     chatMessages = messages;
@@ -935,8 +1000,9 @@ export const initLLmFunction = (
   };
 };
 function createValidationErrorFunctionMessage(error: string) {
-  return new FunctionMessage(
-    `function 'print' returned a Validation error\n'${error}\n Try again with a valid response. You may be forgetting to add key called 'argument'`,
-    'print'
-  );
+  return {
+    role: ChatCompletionResponseMessageRoleEnum.Function,
+    content: `function 'print' returned a Validation error\n'${error}\n Try again with a valid response. You may be forgetting to add key called 'argument'`,
+    name: 'print',
+  };
 }
