@@ -5,3 +5,4 @@ export * as jsonSchema from './jsonSchema';
 export * as logsProvider from './logsProvider';
 export * from './functions';
 export { getUrlDocument } from './documents/urlDocument';
+export * from './adapters/trpcAdapter';

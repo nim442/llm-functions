@@ -245,7 +245,7 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
   }>;
 
   withModelParams(
-    model: ProcedureBuilderDef['model']
+    model: Partial<ProcedureBuilderDef['model']>
   ): ProcedureBuilder<TParams>;
   instructions<T extends string>(
     arg0: T
@@ -903,12 +903,12 @@ export type LogsProvider = {
 
 export type Registry = {
   logsProvider?: LogsProvider;
-  getFunctionsDefs: () => ProcedureBuilderDef[];
-  evaluateDataset?: (
+  getFunctionsDefs: () => Promise<ProcedureBuilderDef[]>;
+  evaluateDataset: (
     idx: string,
     callback?: (ex: Execution<unknown>) => void
   ) => Promise<Execution<unknown>[]>;
-  evaluateFn?: (
+  evaluateFn: (
     idx: string,
     args: FunctionArgs,
     callback?: (ex: Execution<unknown>) => void
@@ -960,7 +960,7 @@ export const initLLmFunction = (
   return {
     registry: {
       logsProvider: logsProvider,
-      getFunctionsDefs: () => functionsDefs,
+      getFunctionsDefs: () => Promise.resolve(functionsDefs),
       evaluateFn: async (idx, args, respCallback) => {
         const fnDef = functionsDefs.find((d) => d.id === idx);
         if (!fnDef) {

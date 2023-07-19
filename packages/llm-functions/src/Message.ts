@@ -95,15 +95,19 @@ export const streamToPromise = async (
     stringResponse += stringToken;
 
     const r = parseResponse(stringResponse);
-    if (r.function_call.arguments) {
-      const partialArgs = JSON.parse(
-        fixPartialJson(r.function_call?.arguments)
-      );
-
-      onFunctionCallUpdate?.({
-        name: r.function_call.name,
-        arguments: partialArgs.argument,
-      });
+    try {
+      if (r.function_call.arguments) {
+        const partialArgs = JSON.parse(
+          fixPartialJson(r.function_call?.arguments)
+        );
+        onFunctionCallUpdate?.({
+          name: r.function_call.name,
+          arguments: partialArgs.argument,
+        });
+      }
+    } catch (_) {
+      // Do nothing here. The partial json is only there to show progress to the end user. It's okay if sometimes the parsing fails.
+      // It fixes itself when more tokens come in
     }
     //@ts-ignore
     return reader.read().then(pump);

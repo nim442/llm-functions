@@ -33,7 +33,9 @@ export const LogsTable: React.FC<{
   if (data.length === 0)
     return (
       <div className="flex items-center justify-center w-full">
-        <div className="text-white">No logs found for this function</div>;
+        <div className="text-white font-bold">
+          No logs found for this function
+        </div>
       </div>
     );
   return (
