@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.22
+
+### Patch Changes
+
+- Add trpc adapters
+
 ## 0.0.21
 
 ### Patch Changes

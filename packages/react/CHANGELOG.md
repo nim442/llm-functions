@@ -1,5 +1,13 @@
 # @llm-functions/react
 
+## 0.0.22
+
+### Patch Changes
+
+- Add trpc adapters
+- Updated dependencies
+  - llm-functions@0.0.22
+
 ## 0.0.21
 
 ### Patch Changes
