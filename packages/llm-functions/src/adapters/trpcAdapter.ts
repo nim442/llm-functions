@@ -43,9 +43,9 @@ export const createLLmFunctionsPlaygroundRouter = (
     }),
   };
 };
-
-export const createRegistryFromTrpcClient = <TRouter extends AnyRouter>(
-  trpcClient: CreateTRPCProxyClient<TRouter>
+//TODO fix any
+export const createRegistryFromTrpcClient = (
+  trpcClient: any
 ): Registry => {
   const playgroundFunctions = get(
     trpcClient,
