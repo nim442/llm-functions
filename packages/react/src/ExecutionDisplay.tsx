@@ -46,7 +46,7 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
     <div className=" w-full flex">
       <div className="flex-1">
         <div className="flex flex-col h-full overflow-auto">
-          <div className="flex flex-col h-full relative">
+          <div className="flex flex-col h-full relative overflow-auto">
             <div className="flex flex-col gap-2 p-4 divide-y divide-neutral-800">
               <div className="py-4">
                 <div className="">
@@ -150,7 +150,7 @@ export const Component: React.FC<ExecutionDisplayProps> = ({ data }) => {
               </div>
             </div>
           </div>
-          <div className="flex flex-col gap-1 mb-2 p-4 border-t border-neutral-800">
+          <div className="flex flex-col gap-1 mb-2 p-4 border-t border-neutral-800 max-h-96">
             <div className="text-neutral-500 text-xs">Output</div>
             <div className="text-white text-sm whitespace-break-spaces rounded">
               {data.verified === true ? (

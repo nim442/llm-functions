@@ -1,4 +1,7 @@
 import { ChatOpenAI } from 'langchain/chat_models/openai';
+import { fromZodError } from 'zod-validation-error';
+import { backOff } from 'exponential-backoff';
+
 import {
   ChatCompletionRequestMessage,
   ChatCompletionResponseMessage,
@@ -10,7 +13,7 @@ import {
 
 import { OpenAIStream, StreamingTextResponse } from 'ai';
 import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 
 import { Document, splitDocument } from './documents/document';
 import { stringToJSONSchema } from './jsonSchema';
@@ -23,14 +26,14 @@ import {
   mergeOrUpdate,
 } from './utils';
 
-import _, { compact, has, pick } from 'lodash';
+import _, { compact, get, has, omit, pick } from 'lodash';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
 
 import { cyrb53 } from './cyrb53';
 
-import { DocumentAction } from './action/documentAction';
+import { DocumentAction, DocumentOutput } from './action/documentAction';
 import {
   FunctionDef,
   FunctionProcedureBuilder,
@@ -44,6 +47,7 @@ import {
   streamToPromise,
 } from './Message';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { generateErrorMessage } from 'zod-error';
 
 type Parser = z.ZodSchema;
 
@@ -88,6 +92,7 @@ export type Execution<T = unknown> = {
     functionDef: ProcedureBuilderDef;
   }[];
   finalResponse?: T;
+  documentContext?: string[];
   partialFinalResponse?: DeepPartial<T>;
   verified?: boolean;
 };
@@ -305,13 +310,14 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
 export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
   onExecutionUpdate?: (execution: Execution<unknown>) => void,
-  onCreated?: (fnDef: ProcedureBuilderDef) => void
+  onCreated?: (fnDef: ProcedureBuilderDef) => void,
+  openApiKey?: string
 ) => ProcedureBuilder<TParams>;
 
 export const createFn: createFn = (initDef, ...args) => {
   let execution: Execution<unknown> | undefined;
   let functionExecutionId: string;
-  const [onExecutionUpdate, onCreated] = args;
+  const [onExecutionUpdate, onCreated, openApiKey] = args;
   const def = {
     model: {
       model: 'gpt-3.5-turbo-16k',
@@ -323,7 +329,10 @@ export const createFn: createFn = (initDef, ...args) => {
   const getOpenAiModel = () => {
     const config = new Configuration({
       apiKey:
-        process.env.OPENAI_API_KEY || getApiKeyFromLocalStorage() || undefined,
+        openApiKey ||
+        process.env.OPENAI_API_KEY ||
+        getApiKeyFromLocalStorage() ||
+        undefined,
     });
     return new OpenAIApi(config);
   };
@@ -350,17 +359,11 @@ export const createFn: createFn = (initDef, ...args) => {
     const functions = [...userFunctions, printFn.def];
     const openAiFunctions = functions.map(toOpenAiFunction);
 
-    const respStream = await getOpenAiModel().createChatCompletion({
-      ...def.model,
-      messages,
-      stream: true,
-      functions: openAiFunctions,
-      function_call: userFunctions.length === 0 ? { name: 'print' } : 'auto',
-    });
-
-    const stream = OpenAIStream(respStream);
-
-    const resp = await streamToPromise(stream, (fnCall) => {
+    const onFunctionCallUpdate = (
+      fnCall: Parameters<
+        Exclude<Parameters<typeof streamToPromise>[1], undefined>
+      >[0]
+    ) => {
       if (execution) {
         const executionWithPartialResponse = {
           ...execution,
@@ -378,119 +381,173 @@ export const createFn: createFn = (initDef, ...args) => {
 
         onExecutionUpdate?.(execution);
       }
-    });
+    };
 
-    messages = [...messages, resp];
-
-    const functionCallSchema = z.object({
-      name: z.string(),
-      arguments: stringToJSONSchema,
-    });
-    if (!resp.function_call) {
-      updateTrace(id, {
-        response: {
-          type: 'error',
-          error: `No function call found, Got text instead: ${resp.content}`,
-        },
-      });
-      return callZodOutput(
-        [
-          ...messages,
-          {
-            role: ChatCompletionResponseMessageRoleEnum.User,
-            content: `Please use the print function to respond. print function has the following scheme:
-${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}         
-`,
-          },
-        ],
-        zodSchema,
-        retries + 1
-      );
-    }
-    const functionCallJson = await functionCallSchema.safeParseAsync(
-      resp.function_call
+    const debouncedOnFunctionCallUpdate = _.debounce(
+      (arg) => onFunctionCallUpdate(arg),
+      100,
+      { leading: true, trailing: true }
     );
-
-    if (functionCallJson.success) {
-      const fn = functions?.find((f) => f.name === functionCallJson.data.name);
-      if (!fn) {
-        throw new Error(
-          `Function ${functionCallJson.data.name} not found in ${JSON.stringify(
-            functions.map((f) => f.name)
-          )}`
-        );
-      }
-
-      const argument = fn?.parameters?.safeParse(
-        functionCallJson.data.arguments
-      );
-
-      if (argument.success) {
-        if (fn.name === 'print') {
-          const response = (argument.data as any).argument;
-          updateTrace(id, {
-            response: {
-              type: 'success',
-              output: { type: 'response', data: response },
-            },
+    try {
+      const resp = await backOff(
+        async () => {
+          const respStream = await getOpenAiModel().createChatCompletion({
+            ...def.model,
+            messages,
+            stream: true,
+            functions: openAiFunctions,
+            function_call:
+              userFunctions.length === 0 ? { name: 'print' } : 'auto',
           });
 
-          return [
-            response,
-            [
-              ...messages,
-              {
-                role: 'function',
-                content: `Success`,
-                name: 'print',
+          const stream = OpenAIStream(respStream);
+          return streamToPromise(stream, debouncedOnFunctionCallUpdate);
+        },
+        {
+          numOfAttempts: 25,
+          startingDelay: 1000,
+          jitter: 'full',
+          retry: (e) => {
+            return e.message === 'rate_limit_exceeded';
+          },
+        }
+      );
+      messages = [...messages, resp];
+
+      const functionCallSchema = z.object({
+        name: z.string(),
+        arguments: stringToJSONSchema,
+      });
+      if (!resp.function_call) {
+        updateTrace(id, {
+          response: {
+            type: 'error',
+            error: `No function call found, Got text instead: ${resp.content}`,
+          },
+        });
+        return callZodOutput(
+          [
+            ...messages,
+            {
+              role: ChatCompletionResponseMessageRoleEnum.User,
+              content: `Please use the print function to respond. print function has the following scheme:
+  ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}         
+  `,
+            },
+          ],
+          zodSchema,
+          retries + 1
+        );
+      }
+      const functionCallJson = await functionCallSchema.safeParseAsync(
+        resp.function_call
+      );
+
+      if (functionCallJson.success) {
+        const fn = functions?.find(
+          (f) => f.name === functionCallJson.data.name
+        );
+        if (!fn) {
+          throw new Error(
+            `Function ${
+              functionCallJson.data.name
+            } not found in ${JSON.stringify(functions.map((f) => f.name))}`
+          );
+        }
+
+        const argument = fn?.parameters?.safeParse(
+          functionCallJson.data.arguments
+        );
+
+        if (argument.success) {
+          if (fn.name === 'print') {
+            const response = (argument.data as any).argument;
+            updateTrace(id, {
+              response: {
+                type: 'success',
+                output: { type: 'response', data: response },
               },
-            ],
-          ];
+            });
+
+            return [
+              response,
+              [
+                ...messages,
+                {
+                  role: 'function',
+                  content: `Success`,
+                  name: 'print',
+                },
+              ],
+            ];
+          } else {
+            updateTrace(id, {
+              response: {
+                type: 'success',
+                output: {
+                  type: 'functionCall',
+                  data: {
+                    ...pick(fn, ['name', 'description']),
+                    parameters: argument.data,
+                  },
+                },
+              },
+            });
+            const id2 = createTrace({
+              action: 'calling-function',
+              input: {
+                ...pick(fn, ['name', 'description']),
+                parameters: argument.data,
+              },
+              response: { type: 'loading' },
+            });
+            const fnResponse = await fn?.implements?.(argument.data);
+            updateTrace(id2, {
+              response: { type: 'success', output: fnResponse },
+            });
+
+            return callZodOutput(
+              [
+                ...messages,
+                {
+                  role: 'function',
+                  content: fnResponse || 'No response',
+                  name: fn.name,
+                },
+              ],
+              zodSchema,
+              retries
+            );
+          }
         } else {
           updateTrace(id, {
             response: {
-              type: 'success',
-              output: {
-                type: 'functionCall',
-                data: {
-                  ...pick(fn, ['name', 'description']),
-                  parameters: argument.data,
-                },
+              type: 'zod-error',
+              output: functionCallJson.data.arguments,
+              error: argument.error.message,
+            },
+          });
+          if (retries > 3) {
+            updateTrace(id, {
+              response: {
+                type: 'timeout-error',
               },
-            },
-          });
-          const id2 = createTrace({
-            action: 'calling-function',
-            input: {
-              ...pick(fn, ['name', 'description']),
-              parameters: argument.data,
-            },
-            response: { type: 'loading' },
-          });
-          const fnResponse = await fn?.implements?.(argument.data);
-          updateTrace(id2, {
-            response: { type: 'success', output: fnResponse },
-          });
+            });
+            return [argument.error.message as any, messages];
+          }
 
           return callZodOutput(
-            [
-              ...messages,
-              {
-                role: 'function',
-                content: fnResponse || 'No response',
-                name: fn.name,
-              },
-            ],
+            [...messages, createValidationErrorFunctionMessage(argument.error)],
             zodSchema,
-            retries
+            retries + 1
           );
         }
       } else {
         updateTrace(id, {
           response: {
             type: 'zod-error',
-            output: functionCallJson.data.arguments,
-            error: argument.error.message,
+            output: resp.function_call,
+            error: functionCallJson.error.message,
           },
         });
         if (retries > 3) {
@@ -499,43 +556,27 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
               type: 'timeout-error',
             },
           });
-          return [argument.error.message as any, messages];
+          return [functionCallJson.error.message as any, messages];
         }
 
         return callZodOutput(
           [
             ...messages,
-            createValidationErrorFunctionMessage(argument.error.message),
+            createValidationErrorFunctionMessage(functionCallJson.error),
           ],
           zodSchema,
           retries + 1
         );
       }
-    } else {
+    } catch (e: any) {
       updateTrace(id, {
         response: {
-          type: 'zod-error',
-          output: resp.function_call,
-          error: functionCallJson.error.message,
+          type: 'error',
+          error: e.message,
         },
       });
-      if (retries > 3) {
-        updateTrace(id, {
-          response: {
-            type: 'timeout-error',
-          },
-        });
-        return [functionCallJson.error.message as any, messages];
-      }
 
-      return callZodOutput(
-        [
-          ...messages,
-          createValidationErrorFunctionMessage(functionCallJson.error.message),
-        ],
-        zodSchema,
-        retries + 1
-      );
+      return [{ error: e.message } as any, messages];
     }
   };
 
@@ -556,7 +597,11 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
     };
     return id;
   };
-  const resolveExecution = (finalResponse: any, trace: Trace = []) => {
+  const resolveExecution = (
+    finalResponse: any,
+    documentContext?: string[],
+    trace: Trace = []
+  ) => {
     if (!execution) {
       throw new Error('Execution not found');
     }
@@ -568,13 +613,18 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
               ...e,
               trace: [...e.trace, ...trace],
               finalResponse,
+              documentContext,
             }
           : e
       ),
       finalResponse,
+      documentContext,
     };
     if (onExecutionUpdate && execution) {
       onExecutionUpdate(execution);
+    }
+    if (finalResponse.error) {
+      throw new Error(finalResponse.error);
     }
     return execution;
   };
@@ -667,8 +717,8 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
     const queryTemplate =
       queryArg && def.query
         ? `DOCUMENT:"""
-    ${queryDoc}
-  """\n`
+${queryDoc}
+"""\n`
         : '';
     const userPrompt = (
       def.instructions
@@ -690,8 +740,8 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
           response: { type: 'success', output: documentContext },
         });
         return `DOCUMENT:"""
-            ${documentContext.result}
-            """`;
+${documentContext.result}
+"""`;
       })
     );
     if (!def.output && !def.instructions) {
@@ -715,7 +765,7 @@ Once you have the answer, use the print function. Always call one of the provide
         content: queryTemplate,
       },
       documentsTemplate.length > 0 && {
-        role: ChatCompletionResponseMessageRoleEnum.User,
+        role: ChatCompletionResponseMessageRoleEnum.System,
         content: documentsTemplate.join('\n'),
       },
       userPrompt && {
@@ -732,7 +782,7 @@ Once you have the answer, use the print function. Always call one of the provide
     const [aiMessage, messages] = await callZodOutput(chatMessages, zodSchema);
     chatMessages = messages;
 
-    return resolveExecution(aiMessage);
+    return resolveExecution(aiMessage, documentsTemplate);
   };
   return {
     __internal: { def: def },
@@ -861,7 +911,7 @@ Once you have the answer, use the print function. Always call one of the provide
               const appliedMap = await Promise.resolve(
                 fn(p.finalResponse, execution, runtimeArgs)
               );
-              return resolveExecution(appliedMap);
+              return resolveExecution(appliedMap, execution?.documentContext);
             }
           }, Promise.resolve(firstResponse));
           return finalResponse;
@@ -916,7 +966,8 @@ export type Registry = {
 };
 
 export const initLLmFunction = (
-  logsProvider?: LogsProvider
+  logsProvider?: LogsProvider,
+  openApiKey?: string
 ): {
   registry: Registry;
   llmFunction: ProcedureBuilder<ProcedureParams>;
@@ -955,7 +1006,7 @@ export const initLLmFunction = (
     functionsDefs.push(def);
   };
 
-  const llmFunction = createFn({ id: 'test' }, logHandler, onCreate);
+  const llmFunction = createFn(undefined, logHandler, onCreate, openApiKey);
 
   return {
     registry: {
@@ -967,10 +1018,15 @@ export const initLLmFunction = (
           throw new Error('Function not found');
         }
 
-        const _resp = await createFn(fnDef, (l) => {
-          const finalResp = logHandler(l);
-          respCallback && respCallback(finalResp);
-        }).run(args);
+        const _resp = await createFn(
+          fnDef,
+          (l) => {
+            const finalResp = logHandler(l);
+            respCallback && respCallback(finalResp);
+          },
+          undefined,
+          openApiKey
+        ).run(args);
 
         const resp = logHandler(_resp);
         const verified = fnDef.verify?.(resp, args as FunctionArgs);
@@ -988,10 +1044,15 @@ export const initLLmFunction = (
         if (!fnDef) {
           throw new Error('Function not found');
         }
-        const resp = createFn(fnDef, (l) => {
-          logHandler(l);
-          respCallback && respCallback(l);
-        }).runDataset();
+        const resp = createFn(
+          fnDef,
+          (l) => {
+            logHandler(l);
+            respCallback && respCallback(l);
+          },
+          undefined,
+          openApiKey
+        ).runDataset();
 
         return resp;
       },
@@ -999,10 +1060,22 @@ export const initLLmFunction = (
     llmFunction,
   };
 };
-function createValidationErrorFunctionMessage(error: string) {
+
+const getUnionError = (error: ZodError) => {
+  const e = error.issues[0];
+  if (e?.code === 'invalid_union') {
+    return fromZodError(e.unionErrors[0]);
+  } else {
+    return error.message;
+  }
+};
+function createValidationErrorFunctionMessage(error: ZodError) {
   return {
     role: ChatCompletionResponseMessageRoleEnum.Function,
-    content: `function 'print' returned a Validation error\n'${error}\n Try again with a valid response. You may be forgetting to add key called 'argument'`,
+    content: `function 'print' returned a Validation error: ${getUnionError(
+      error
+    )}
+Try again with a valid response. You may be forgetting to add key called 'argument'`,
     name: 'print',
   };
 }

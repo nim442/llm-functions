@@ -61,15 +61,34 @@ export async function getHtml(document: Extract<Document, { type: 'url' }>) {
   const selectedEl = (function () {
     if (document.selector) {
       const selectedEl = $(document.selector);
-      selectedEl.find('*').each((index, element) => {
-        const $element = $(element);
-        $element.removeAttr('class');
-      });
       return selectedEl;
     } else {
       return $('body');
     }
   })();
+
+  // ATTRIBUTE REMOVAL
+  if (document.removeAttrs === 'all') {
+    selectedEl.find('*').each((index, element) => {
+      const $element = $(element);
+      element.attributes.forEach((attr) => {
+        $element.removeAttr(attr.name);
+      });
+    });
+  } else {
+    document.removeAttrs?.forEach((attr) => {
+      selectedEl.find('*').each((index, element) => {
+        const $element = $(element);
+
+        $element.removeAttr('class');
+      });
+    });
+  }
+
+  //Selector removal
+  document.removeSelectors?.forEach((selector) => {
+    $(selectedEl).find(selector).remove();
+  });
 
   const body = selectedEl
     .map((_, element) =>
