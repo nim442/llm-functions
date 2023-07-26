@@ -1,5 +1,15 @@
 # llm-functions-ts
 
+## 0.0.23
+
+### Patch Changes
+
+- Various tweaks
+
+  - exponential backoff
+  - better error handling
+  - better scraping options
+
 ## 0.0.22
 
 ### Patch Changes
