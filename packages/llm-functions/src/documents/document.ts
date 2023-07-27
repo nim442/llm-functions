@@ -1,19 +1,10 @@
 import { range } from 'lodash';
 
-import {
-  entries,
-  filter,
-  groupBy,
-  map,
-  mapValues,
-  pipe,
-  reverse,
-  sortBy,
-} from 'lodash/fp';
 import { DocumentOutput } from '../action/documentAction';
 import { getUrlDocument } from './urlDocument';
 import * as pdfjs from 'pdfjs-dist';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
+import _ from 'lodash';
 
 export type DocumentCommonProps = {
   selector?: string;
@@ -68,15 +59,16 @@ export const splitDocument = async (
           const page = await p.getPage(i + 1);
           const text = await page.getTextContent();
 
-          return pipe(
-            filter((d: TextItem) => 'transform' in d),
-            groupBy((d) => d.transform[5]),
-            mapValues((d) => d.map((t) => t.str).join(',')),
-            entries,
-            sortBy((t) => Number(t[0])),
-            map((t) => t[1]),
-            reverse
-          )(text.items).join('\n');
+          return _.chain(text.items as TextItem[])
+            .filter((d) => 'transform' in d)
+            .groupBy((d) => d.transform[5])
+            .mapValues((d) => d.map((t) => t.str).join(','))
+            .entries()
+            .sortBy((t) => Number(t[0]))
+            .map((t) => t[1])
+            .reverse()
+            .join('\n')
+            .value();
         })
       ).then((s) => s.join('\n'));
 
