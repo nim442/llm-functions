@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.25
+
+### Patch Changes
+
+- Remove lodash/fp
+
 ## 0.0.24
 
 ### Patch Changes

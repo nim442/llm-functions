@@ -1,5 +1,13 @@
 # @llm-functions/react
 
+## 0.0.25
+
+### Patch Changes
+
+- Remove lodash/fp
+- Updated dependencies
+  - llm-functions@0.0.25
+
 ## 0.0.24
 
 ### Patch Changes
