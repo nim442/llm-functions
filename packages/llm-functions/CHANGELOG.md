@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.26
+
+### Patch Changes
+
+- Lodash esm modules
+
 ## 0.0.25
 
 ### Patch Changes

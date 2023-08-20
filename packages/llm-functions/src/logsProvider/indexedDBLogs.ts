@@ -1,4 +1,4 @@
-import { sortBy } from 'lodash';
+import _ from 'lodash';
 import { Execution, LogsProvider } from '../llm';
 import { openDB } from 'idb';
 export const indexedDBLogs: LogsProvider = {
@@ -17,7 +17,7 @@ export const indexedDBLogs: LogsProvider = {
       const filteredLogs = sortedLogs.filter((s) =>
         s.functionsExecuted.find((f) => f.functionDef.id === id)
       );
-      return sortBy(filteredLogs, (s) => new Date(s.createdAt));
+      return _.sortBy(filteredLogs, (s) => new Date(s.createdAt));
     } else {
       return [];
     }
@@ -47,7 +47,7 @@ export const indexedDBLogs: LogsProvider = {
       const logs = await db.getAll('logs');
       const parsedLogs = logs.map((l) => JSON.parse(l));
 
-      return sortBy(parsedLogs, (s) => new Date(s.createdAt));
+      return _.sortBy(parsedLogs, (s) => new Date(s.createdAt));
     } else {
       return [];
     }

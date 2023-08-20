@@ -1,5 +1,3 @@
-import { range } from 'lodash';
-
 import { DocumentOutput } from '../action/documentAction';
 import { getUrlDocument } from './urlDocument';
 import * as pdfjs from 'pdfjs-dist';
@@ -55,7 +53,7 @@ export const splitDocument = async (
       }
       const p = await pdfjs.getDocument(bufferOrUrl).promise;
       const csv = await Promise.all(
-        range(p.numPages).map(async (i) => {
+        _.range(p.numPages).map(async (i) => {
           const page = await p.getPage(i + 1);
           const text = await page.getTextContent();
 

@@ -7,7 +7,7 @@ import {
 import { type CreateTRPCProxyClient } from '@trpc/client';
 
 import { createBuilder } from '@trpc/server/dist/core/internals/procedureBuilder';
-import { get } from 'lodash';
+import _ from 'lodash';
 import { Registry } from '../llm';
 
 export const createLLmFunctionsPlaygroundRouter = (
@@ -47,7 +47,7 @@ export const createLLmFunctionsPlaygroundRouter = (
 export const createRegistryFromTrpcClient = (
   trpcClient: any
 ): Registry => {
-  const playgroundFunctions = get(
+  const playgroundFunctions = _.get(
     trpcClient,
     'llmFunctionsPlayground'
   ) as unknown as CreateTRPCProxyClient<

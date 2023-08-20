@@ -4,7 +4,7 @@ import {
   ChatCompletionResponseMessageRoleEnum,
 } from 'openai-edge';
 
-import { has } from 'lodash';
+import _ from 'lodash';
 import fixPartialJson from './fix-partial-json';
 import { z } from 'zod';
 
@@ -55,7 +55,7 @@ export const fromLangChainMessage = (
 const parseResponse = (response: string) => {
   try {
     const json = JSON.parse(fixPartialJson(response));
-    if (has(json, ['function_call'])) {
+    if (_.has(json, ['function_call'])) {
       return {
         role: ChatCompletionResponseMessageRoleEnum.Assistant,
         function_call: json.function_call,

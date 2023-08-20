@@ -26,7 +26,7 @@ import {
   mergeOrUpdate,
 } from './utils';
 
-import _, { compact, get, has, omit, pick } from 'lodash';
+import _ from 'lodash';
 
 import * as nanoid from 'nanoid';
 import { printNode, zodToTs } from 'zod-to-ts';
@@ -385,8 +385,8 @@ export const createFn: createFn = (initDef, ...args) => {
 
     const debouncedOnFunctionCallUpdate = _.debounce(
       (arg) => onFunctionCallUpdate(arg),
-      100,
-      { leading: true, trailing: true }
+      50,
+      { leading: true }
     );
     try {
       const resp = await backOff(
@@ -487,7 +487,7 @@ export const createFn: createFn = (initDef, ...args) => {
                 output: {
                   type: 'functionCall',
                   data: {
-                    ...pick(fn, ['name', 'description']),
+                    ..._.pick(fn, ['name', 'description']),
                     parameters: argument.data,
                   },
                 },
@@ -496,7 +496,7 @@ export const createFn: createFn = (initDef, ...args) => {
             const id2 = createTrace({
               action: 'calling-function',
               input: {
-                ...pick(fn, ['name', 'description']),
+                ..._.pick(fn, ['name', 'description']),
                 parameters: argument.data,
               },
               response: { type: 'loading' },
@@ -759,7 +759,7 @@ ${documentContext.result}
 Once you have the answer, use the print function. Always call one of the provided functions`,
     };
 
-    const userMessages = compact([
+    const userMessages = _.compact([
       queryTemplate && {
         role: ChatCompletionResponseMessageRoleEnum.User,
         content: queryTemplate,

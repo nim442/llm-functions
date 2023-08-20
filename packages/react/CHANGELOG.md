@@ -1,5 +1,13 @@
 # @llm-functions/react
 
+## 0.0.26
+
+### Patch Changes
+
+- Lodash esm modules
+- Updated dependencies
+  - llm-functions@0.0.26
+
 ## 0.0.25
 
 ### Patch Changes
