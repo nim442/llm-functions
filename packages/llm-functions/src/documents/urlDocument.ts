@@ -2,11 +2,12 @@ import { Document } from './document';
 import { load } from 'cheerio';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import memoize from 'memoizee';
-
+import { Document as LangChainDocument } from 'langchain/document';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { getApiKeyFromLocalStorage } from '../utils';
 import { DocumentOutput } from '../action/documentAction';
+import _ from 'lodash';
 
 const scrape = async function (
   url: string,
@@ -38,12 +39,20 @@ const scrape = async function (
 };
 const memoizedScrape = memoize(scrape, { max: 50 });
 
-export async function getHtml(document: Extract<Document, { type: 'url' }>) {
-  const url = document.input;
-  const html = await memoizedScrape(url, document.customFetcher);
+export async function getHtml(
+  input: string,
+  customFetcher: Extract<Document, { type: 'url' }>['customFetcher'],
+  chunkingStrategy: Extract<Document, { type: 'url' }>['chunkingStrategy'],
+  selector: Extract<Document, { type: 'url' }>['selector'],
+  removeAttrs: Extract<Document, { type: 'url' }>['removeAttrs'],
+  removeSelectors: Extract<Document, { type: 'url' }>['removeSelectors'],
+  returnType: Extract<Document, { type: 'url' }>['returnType']
+) {
+  const url = input;
+  const html = await memoizedScrape(url, customFetcher);
 
   let $ = load(html);
-  if (document.chunkingStrategy === undefined) {
+  if (chunkingStrategy === undefined) {
     // Remove comments
     $('*')
       .contents()
@@ -59,8 +68,8 @@ export async function getHtml(document: Extract<Document, { type: 'url' }>) {
   }
 
   const selectedEl = (function () {
-    if (document.selector) {
-      const selectedEl = $(document.selector);
+    if (selector) {
+      const selectedEl = $(selector);
       return selectedEl;
     } else {
       return $('body');
@@ -68,7 +77,7 @@ export async function getHtml(document: Extract<Document, { type: 'url' }>) {
   })();
 
   // ATTRIBUTE REMOVAL
-  if (document.removeAttrs === 'all') {
+  if (removeAttrs === 'all') {
     selectedEl.find('*').each((index, element) => {
       const $element = $(element);
       element.attributes.forEach((attr) => {
@@ -76,7 +85,7 @@ export async function getHtml(document: Extract<Document, { type: 'url' }>) {
       });
     });
   } else {
-    document.removeAttrs?.forEach((attr) => {
+    removeAttrs?.forEach((attr) => {
       selectedEl.find('*').each((index, element) => {
         const $element = $(element);
 
@@ -86,13 +95,13 @@ export async function getHtml(document: Extract<Document, { type: 'url' }>) {
   }
 
   //Selector removal
-  document.removeSelectors?.forEach((selector) => {
+  removeSelectors?.forEach((selector) => {
     $(selectedEl).find(selector).remove();
   });
 
   const body = selectedEl
     .map((_, element) =>
-      document.returnType === 'text' ? $(element).text() : $(element).html()
+      returnType === 'text' ? $(element).text() : $(element).html()
     )
     .get()
     .join('\n')
@@ -106,8 +115,39 @@ export const getUrlDocument = async (
   document: Extract<Document, { type: 'url' }>,
   query: string | undefined
 ): Promise<DocumentOutput> => {
-  const { body, html: urlHtml, url } = await getHtml(document);
+  const results = Array.isArray(document.input)
+    ? await Promise.all(
+        document.input.map((input) =>
+          getHtml(
+            input,
+            document.customFetcher,
+            document.chunkingStrategy,
+            document.selector,
+            document.removeAttrs,
+            document.removeSelectors,
+            document.returnType
+          )
+        )
+      )
+    : [
+        await getHtml(
+          document.input,
+          document.customFetcher,
+          document.chunkingStrategy,
+          document.selector,
+          document.removeAttrs,
+          document.removeSelectors,
+          document.returnType
+        ),
+      ];
+
+  const documents = results.map(
+    (r) =>
+      new LangChainDocument({ pageContent: r.body, metadata: { url: r.url } })
+  );
+
   const chunkingStrategy = document.chunkingStrategy;
+
   if (chunkingStrategy) {
     const c = RecursiveCharacterTextSplitter.fromLanguage('html', {
       chunkOverlap: 0,
@@ -119,9 +159,28 @@ export const getUrlDocument = async (
       maxRetries: 20,
     });
 
-    const splitHtml = await c.createDocuments([body || '']);
+    const splitDocs = await c.splitDocuments(documents);
+
+    const docsWithMetadata = Object.values(
+      _.mapValues(
+        _.groupBy(splitDocs, (d) => d.metadata.url),
+        (docs) =>
+          docs.map((doc, index) => {
+            const { chunkSize, chunkOverlap } = doc.metadata;
+            const totalSize = docs.length;
+            const metadata = {
+              ...doc.metadata,
+              chunkSize: chunkingStrategy.options.chunkSize,
+              chunkQuery: chunkingStrategy.options.chunkingQuery,
+              sizeInfo: `${index + 1}/${totalSize}`,
+            };
+            return { ...doc, metadata };
+          })
+      )
+    ).flat();
+
     const vectorStores = await MemoryVectorStore.fromDocuments(
-      splitHtml,
+      docsWithMetadata,
       openAIEmbeddings
     );
 
@@ -130,17 +189,15 @@ export const getUrlDocument = async (
       chunkingStrategy.options.topK || 4
     );
 
-    const search = similaritySearch.map((s) => s.pageContent).join('\n\n');
-
-    return {
-      fullDocument: urlHtml,
-      result: `Scraped ${url}\n${search}`,
-      chunks: splitHtml.map((s) => s.pageContent),
-    };
+    return similaritySearch.map((s) => {
+      return {
+        result: `Scraped ${s.metadata.url}\n${s.pageContent}`,
+      };
+    });
   } else
-    return {
-      fullDocument: urlHtml,
-      result: `Scraped ${url}\n${body}`,
-      chunks: [body || ''],
-    };
+    return results.map((s) => {
+      return {
+        result: `Scraped ${s.url}\n${s.body}`,
+      };
+    });
 };

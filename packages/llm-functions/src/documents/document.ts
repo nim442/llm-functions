@@ -30,7 +30,7 @@ export type Document = DocumentCommonProps &
       }
     | {
         type: 'url';
-        input: string;
+        input: string | string[];
         customFetcher?: CustomFetcher | 'browserless';
       }
   );
@@ -70,9 +70,9 @@ export const splitDocument = async (
         })
       ).then((s) => s.join('\n'));
 
-      return { result: csv, fullDocument: csv };
+      return [{ result: csv }];
     case 'text':
-      return { result: document.input, fullDocument: document.input };
+      return [{ result: document.input }];
     case 'url': {
       const doc = await getUrlDocument(document, query);
       return doc;

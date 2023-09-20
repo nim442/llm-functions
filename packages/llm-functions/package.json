@@ -51,6 +51,7 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
+    "@pinecone-database/pinecone": "^1.0.1",
     "@trpc/client": "^10.34.0",
     "@trpc/server": "^10.34.0",
     "@types/lodash": "^4.14.194",
@@ -62,7 +63,7 @@
     "hotscript": "^1.0.11",
     "idb": "^7.1.1",
     "immer": "latest",
-    "langchain": "^0.0.110",
+    "langchain": "^0.0.150",
     "lodash": "^4.17.21",
     "memoizee": "^0.4.15",
     "nanoid": "^3.3.6",

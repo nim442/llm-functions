@@ -2,11 +2,10 @@ import { Document } from '../documents/document';
 import { Log } from '../llm';
 
 export type DocumentOutput = {
-  fullDocument: string;
   result: string;
   chunks?: string[];
   matchingChunk?: string;
-};
+}[];
 
 export type DocumentAction = {
   id: string;

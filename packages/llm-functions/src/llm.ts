@@ -1,4 +1,3 @@
-import { ChatOpenAI } from 'langchain/chat_models/openai';
 import { fromZodError } from 'zod-validation-error';
 import { backOff } from 'exponential-backoff';
 
@@ -11,7 +10,7 @@ import {
   OpenAIApi,
 } from 'openai-edge';
 
-import { OpenAIStream, StreamingTextResponse } from 'ai';
+import { OpenAIStream } from 'ai';
 import { Pipe, Tuples, Objects, Fn, Call } from 'hotscript';
 import { z, ZodError } from 'zod';
 
@@ -33,7 +32,7 @@ import { printNode, zodToTs } from 'zod-to-ts';
 
 import { cyrb53 } from './cyrb53';
 
-import { DocumentAction, DocumentOutput } from './action/documentAction';
+import { DocumentAction } from './action/documentAction';
 import {
   FunctionDef,
   FunctionProcedureBuilder,
@@ -47,7 +46,8 @@ import {
   streamToPromise,
 } from './Message';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { generateErrorMessage } from 'zod-error';
+
+import fixPartialJson from './fix-partial-json';
 
 type Parser = z.ZodSchema;
 
@@ -108,6 +108,9 @@ export type ProcedureBuilderDef<I = unknown, O = unknown> = {
   output?: Parser;
   tsOutputString?: string;
   model?: Pick<CreateCompletionRequest, 'model' | 'temperature' | 'top_p'>;
+  settings?: {
+    selfHealingRetries?: number;
+  };
   documents?: DocumentWithoutInput[];
   functions?: FunctionDef[];
   query?: { queryInput: boolean; fn: QueryFn<I, O> };
@@ -299,11 +302,11 @@ export interface ProcedureBuilder<TParams extends ProcedureParams> {
     _documents: TParams['_documents'];
     _query: TParams['_query'];
   }>;
-
   run(
     args: InferredFunctionArgs<TParams>,
     executionId?: string
   ): Promise<Execution<TParams['_output']>>;
+
   runDataset(): Promise<Execution<TParams['_output']>[]>;
 }
 
@@ -317,12 +320,14 @@ export type createFn = <TParams extends ProcedureParams>(
 export const createFn: createFn = (initDef, ...args) => {
   let execution: Execution<unknown> | undefined;
   let functionExecutionId: string;
+  const selfHealingRetries = initDef?.settings?.selfHealingRetries || 1;
   const [onExecutionUpdate, onCreated, openApiKey] = args;
   const def = {
     model: {
       model: 'gpt-3.5-turbo-16k',
       temperature: 0.7,
     },
+    settings: { selfHealingRetries },
     ...initDef,
   };
 
@@ -340,7 +345,7 @@ export const createFn: createFn = (initDef, ...args) => {
   const callZodOutput = async <T>(
     messages: ChatCompletionRequestMessage[],
     zodSchema: z.ZodSchema<T>,
-    retries: number = 0
+    retries: number = 1
   ): Promise<[T, ChatCompletionResponseMessage[]]> => {
     const id = createTrace({
       action: 'calling-open-ai',
@@ -385,7 +390,7 @@ export const createFn: createFn = (initDef, ...args) => {
 
     const debouncedOnFunctionCallUpdate = _.debounce(
       (arg) => onFunctionCallUpdate(arg),
-      50,
+      15,
       { leading: true }
     );
     try {
@@ -404,7 +409,7 @@ export const createFn: createFn = (initDef, ...args) => {
           return streamToPromise(stream, debouncedOnFunctionCallUpdate);
         },
         {
-          numOfAttempts: 25,
+          numOfAttempts: 15,
           startingDelay: 1000,
           jitter: 'full',
           retry: (e) => {
@@ -439,9 +444,11 @@ export const createFn: createFn = (initDef, ...args) => {
           retries + 1
         );
       }
-      const functionCallJson = await functionCallSchema.safeParseAsync(
-        resp.function_call
-      );
+
+      const functionCallJson = await functionCallSchema.safeParseAsync({
+        ...resp.function_call,
+        arguments: fixPartialJson(resp.function_call.arguments || ''),
+      });
 
       if (functionCallJson.success) {
         const fn = functions?.find(
@@ -516,7 +523,7 @@ export const createFn: createFn = (initDef, ...args) => {
                 },
               ],
               zodSchema,
-              retries
+              retries + 1
             );
           }
         } else {
@@ -527,7 +534,7 @@ export const createFn: createFn = (initDef, ...args) => {
               error: argument.error.message,
             },
           });
-          if (retries > 3) {
+          if (retries > selfHealingRetries) {
             updateTrace(id, {
               response: {
                 type: 'timeout-error',
@@ -550,7 +557,7 @@ export const createFn: createFn = (initDef, ...args) => {
             error: functionCallJson.error.message,
           },
         });
-        if (retries > 3) {
+        if (retries > selfHealingRetries) {
           updateTrace(id, {
             response: {
               type: 'timeout-error',
@@ -739,8 +746,9 @@ ${queryDoc}
         updateTrace(id, {
           response: { type: 'success', output: documentContext },
         });
+
         return `DOCUMENT:"""
-${documentContext.result}
+${documentContext.map((d) => d.result).join('\n')}
 """`;
       })
     );
@@ -942,8 +950,6 @@ export const safeParseAiFn = <T>(fn: T): AiFunction<T> | undefined => {
     return undefined;
   }
 };
-
-export const llmFunction = createFn();
 
 export type LogsProvider = {
   getLogsByFunctionId: (functionId: string) => Promise<Execution<unknown>[]>;
