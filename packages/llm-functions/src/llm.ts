@@ -32,7 +32,7 @@ import { printNode, zodToTs } from 'zod-to-ts';
 
 import { cyrb53 } from './cyrb53';
 
-import { DocumentAction } from './action/documentAction';
+import { DocumentAction, DocumentOutput } from './action/documentAction';
 import {
   FunctionDef,
   FunctionProcedureBuilder,
@@ -92,7 +92,7 @@ export type Execution<T = unknown> = {
     functionDef: ProcedureBuilderDef;
   }[];
   finalResponse?: T;
-  documentContext?: string[];
+  documentContext?: DocumentOutput[];
   partialFinalResponse?: DeepPartial<T>;
   verified?: boolean;
 };
@@ -606,7 +606,7 @@ export const createFn: createFn = (initDef, ...args) => {
   };
   const resolveExecution = (
     finalResponse: any,
-    documentContext?: string[],
+    documentContext?: DocumentOutput[],
     trace: Trace = []
   ) => {
     if (!execution) {
@@ -735,7 +735,7 @@ ${queryDoc}
         : ''
     ) as string;
 
-    const documentsTemplate = await Promise.all(
+    const documentContexts = await Promise.all(
       documents.map(async (d) => {
         const id = createTrace({
           action: 'get-document',
@@ -746,11 +746,14 @@ ${queryDoc}
         updateTrace(id, {
           response: { type: 'success', output: documentContext },
         });
-
-        return `DOCUMENT:"""
-${documentContext.map((d) => d.result).join('\n')}
-"""`;
+        return documentContext;
       })
+    );
+
+    const documentsTemplate = documentContexts.map(
+      (documentContext) => `DOCUMENT:"""
+${documentContext.map((d) => d.result).join('\n')}
+"""`
     );
     if (!def.output && !def.instructions) {
       return resolveExecution(undefined);
@@ -790,7 +793,7 @@ Once you have the answer, use the print function. Always call one of the provide
     const [aiMessage, messages] = await callZodOutput(chatMessages, zodSchema);
     chatMessages = messages;
 
-    return resolveExecution(aiMessage, documentsTemplate);
+    return resolveExecution(aiMessage, documentContexts);
   };
   return {
     __internal: { def: def },
