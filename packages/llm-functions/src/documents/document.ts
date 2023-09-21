@@ -70,9 +70,9 @@ export const splitDocument = async (
         })
       ).then((s) => s.join('\n'));
 
-      return [{ result: csv }];
+      return [{ result: csv, source: 'pdf' }];
     case 'text':
-      return [{ result: document.input }];
+      return [{ result: document.input, source: 'text' }];
     case 'url': {
       const doc = await getUrlDocument(document, query);
       return doc;

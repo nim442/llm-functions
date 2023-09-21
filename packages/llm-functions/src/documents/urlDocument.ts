@@ -99,16 +99,22 @@ export async function getHtml(
     $(selectedEl).find(selector).remove();
   });
 
-  const body = selectedEl
-    .map((_, element) =>
-      returnType === 'text' ? $(element).text() : $(element).html()
-    )
+  const text = selectedEl
+    .map((_, element) => $(element).text())
+    .get()
+    .join('\n')
+    .trim();
+
+  const htmlContent = selectedEl
+    .map((_, element) => $(element).html())
     .get()
     .join('\n')
     .replace(/\s+/g, ' ')
     .trim();
 
-  return { body, html, url };
+  const body = returnType === 'text' ? text : htmlContent;
+
+  return { body, text, htmlContent, url };
 }
 
 export const getUrlDocument = async (
@@ -143,7 +149,10 @@ export const getUrlDocument = async (
 
   const documents = results.map(
     (r) =>
-      new LangChainDocument({ pageContent: r.body, metadata: { url: r.url } })
+      new LangChainDocument({
+        pageContent: r.text,
+        metadata: { url: r.url, html: r.body },
+      })
   );
 
   const chunkingStrategy = document.chunkingStrategy;
@@ -191,13 +200,15 @@ export const getUrlDocument = async (
 
     return similaritySearch.map((s) => {
       return {
-        result: `Scraped ${s.metadata.url}\n${s.pageContent}`,
+        result: `Scraped ${s.metadata.url}\n${s.metadata.html}`,
+        source: s.metadata.url,
       };
     });
   } else
     return results.map((s) => {
       return {
         result: `Scraped ${s.url}\n${s.body}`,
+        source: s.url,
       };
     });
 };
