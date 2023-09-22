@@ -455,16 +455,26 @@ function renderAction(t: Trace[0]): React.ReactElement {
                   case 'success': {
                     return (
                       <div className="text-sm">
-                        <Inspector
-                          name="chunks"
-                          table={false}
-                          expandLevel={0}
-                          data={t.response.output.chunks?.length}
-                        ></Inspector>
-                        <Inspector
-                          table={false}
-                          data={t.response.output.result}
-                        />
+                        {t.response.output.map((d) => (
+                          <>
+                            <Inspector
+                              name="chunks"
+                              table={false}
+                              expandLevel={0}
+                              data={d.chunks}
+                            ></Inspector>
+                            <Inspector
+                              name="source"
+                              table={false}
+                              data={d.source}
+                            />
+                            <Inspector
+                              name="document"
+                              table={false}
+                              data={d.result}
+                            />
+                          </>
+                        ))}
                       </div>
                     );
                   }

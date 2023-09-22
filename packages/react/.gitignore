@@ -4,3 +4,4 @@ node_modules
 .cache
 dist
 .turbo
+llm-functions-example

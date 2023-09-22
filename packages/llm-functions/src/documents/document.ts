@@ -1,8 +1,10 @@
 import { DocumentOutput } from '../action/documentAction';
-import { getUrlDocument } from './urlDocument';
+import { VectorDatabase, getUrlDocument } from './urlDocument';
 import * as pdfjs from 'pdfjs-dist';
 import { TextItem } from 'pdfjs-dist/types/src/display/api';
 import _ from 'lodash';
+import { VectorStore } from 'langchain/dist/vectorstores/base';
+import { PineconeConfiguration } from '@pinecone-database/pinecone';
 
 export type DocumentCommonProps = {
   selector?: string;
@@ -38,7 +40,8 @@ export type Document = DocumentCommonProps &
 export const splitDocument = async (
   document: Document,
   executionId: string,
-  query?: string
+  query?: string,
+  vectorDatabase?: VectorDatabase
 ): Promise<DocumentOutput> => {
   switch (document.type) {
     case 'pdf':
@@ -74,7 +77,7 @@ export const splitDocument = async (
     case 'text':
       return [{ result: document.input, source: 'text' }];
     case 'url': {
-      const doc = await getUrlDocument(document, query);
+      const doc = await getUrlDocument(document, query, vectorDatabase);
       return doc;
     }
   }

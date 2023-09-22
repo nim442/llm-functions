@@ -39,15 +39,14 @@ import {
   openAifunctionCalling,
   toOpenAiFunction,
 } from './functions';
-import {
-  Message,
-  MessageType,
-  fromLangChainMessage,
-  streamToPromise,
-} from './Message';
+import { Message, fromLangChainMessage, streamToPromise } from './Message';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import fixPartialJson from './fix-partial-json';
+import { VectorStore } from 'langchain/dist/vectorstores/base';
+import { Pinecone, PineconeConfiguration } from '@pinecone-database/pinecone';
+import { PineconeStore } from 'langchain/vectorstores/pinecone';
+import { VectorDatabase } from './documents/urlDocument';
 
 type Parser = z.ZodSchema;
 
@@ -314,14 +313,15 @@ export type createFn = <TParams extends ProcedureParams>(
   initDef?: ProcedureBuilderDef,
   onExecutionUpdate?: (execution: Execution<unknown>) => void,
   onCreated?: (fnDef: ProcedureBuilderDef) => void,
-  openApiKey?: string
+  openApiKey?: string,
+  vectorDatabase?: VectorDatabase
 ) => ProcedureBuilder<TParams>;
 
 export const createFn: createFn = (initDef, ...args) => {
   let execution: Execution<unknown> | undefined;
   let functionExecutionId: string;
   const selfHealingRetries = initDef?.settings?.selfHealingRetries || 1;
-  const [onExecutionUpdate, onCreated, openApiKey] = args;
+  const [onExecutionUpdate, onCreated, openApiKey, vectorDatabase] = args;
   const def = {
     model: {
       model: 'gpt-3.5-turbo-16k',
@@ -436,7 +436,7 @@ export const createFn: createFn = (initDef, ...args) => {
             {
               role: ChatCompletionResponseMessageRoleEnum.User,
               content: `Please use the print function to respond. print function has the following scheme:
-  ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}         
+${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}         
   `,
             },
           ],
@@ -742,7 +742,12 @@ ${queryDoc}
           input: d,
           response: { type: 'loading' },
         });
-        const documentContext = await splitDocument(d, executionId, userPrompt);
+        const documentContext = await splitDocument(
+          d,
+          executionId,
+          userPrompt,
+          vectorDatabase
+        );
         updateTrace(id, {
           response: { type: 'success', output: documentContext },
         });
@@ -974,10 +979,15 @@ export type Registry = {
   ) => Promise<Execution<unknown>>;
 };
 
-export const initLLmFunction = (
-  logsProvider?: LogsProvider,
-  openApiKey?: string
-): {
+export const initLLmFunction = ({
+  vectorDatabase,
+  logsProvider,
+  openApiKey,
+}: {
+  vectorDatabase?: VectorDatabase;
+  logsProvider?: LogsProvider;
+  openApiKey?: string;
+}): {
   registry: Registry;
   llmFunction: ProcedureBuilder<ProcedureParams>;
 } => {
@@ -1015,7 +1025,13 @@ export const initLLmFunction = (
     functionsDefs.push(def);
   };
 
-  const llmFunction = createFn(undefined, logHandler, onCreate, openApiKey);
+  const llmFunction = createFn(
+    undefined,
+    logHandler,
+    onCreate,
+    openApiKey,
+    vectorDatabase
+  );
 
   return {
     registry: {
@@ -1034,7 +1050,8 @@ export const initLLmFunction = (
             respCallback && respCallback(finalResp);
           },
           undefined,
-          openApiKey
+          openApiKey,
+          vectorDatabase
         ).run(args);
 
         const resp = logHandler(_resp);
@@ -1060,7 +1077,8 @@ export const initLLmFunction = (
             respCallback && respCallback(l);
           },
           undefined,
-          openApiKey
+          openApiKey,
+          vectorDatabase
         ).runDataset();
 
         return resp;

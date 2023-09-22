@@ -3,6 +3,7 @@ import { Log } from '../llm';
 
 export type DocumentOutput = {
   result: string;
+  source: string;
   chunks?: string[];
   matchingChunk?: string;
 }[];
