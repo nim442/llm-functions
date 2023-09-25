@@ -52,25 +52,23 @@ export const fromLangChainMessage = (
   }
 };
 
-const parseResponse = (response: string) => {
+const parseResponse = (response: string): ReturnType => {
   try {
     const json = JSON.parse(fixPartialJson(response));
     if (_.has(json, ['function_call'])) {
       return {
-        role: ChatCompletionResponseMessageRoleEnum.Assistant,
-        function_call: json.function_call,
-        content: '',
+        type: 'success',
+        data: {
+          role: ChatCompletionResponseMessageRoleEnum.Assistant,
+          function_call: json.function_call,
+          content: '',
+        },
       };
+    } else {
+      return { type: 'no-fn-call' };
     }
-    return {
-      role: ChatCompletionResponseMessageRoleEnum.Assistant,
-      content: response,
-    };
   } catch (e) {
-    return {
-      role: ChatCompletionResponseMessageRoleEnum.Assistant,
-      content: response,
-    };
+    return { type: 'no-fn-call' };
   }
 };
 
@@ -86,18 +84,27 @@ export const OpenAIError = z.object({
 
 export type OpenAIError = z.infer<typeof OpenAIError>;
 
+type ReturnType =
+  | {
+      type: 'success';
+      data: ChatCompletionResponseMessage;
+    }
+  | {
+      type: 'no-fn-call';
+    };
+
 export const streamToPromise = async (
   stream: ReadableStream<any>,
   onFunctionCallUpdate?: (functionCall: {
     name?: string;
     arguments?: unknown;
   }) => void
-): Promise<ChatCompletionResponseMessage> => {
+): Promise<ReturnType> => {
   const reader = stream.getReader();
   let stringResponse = '';
   return reader
     .read()
-    .then(function pump({ done, value }): ChatCompletionResponseMessage {
+    .then(function pump({ done, value }): ReturnType {
       if (done) {
         // Do something with last chunk of data then exit reader
         return parseResponse(stringResponse);
@@ -108,15 +115,19 @@ export const streamToPromise = async (
       stringResponse += stringToken;
 
       const r = parseResponse(stringResponse);
+      if (r.type === 'no-fn-call') {
+        return r;
+      }
       try {
-        if (r.function_call.arguments) {
+        if (r.data.function_call?.arguments) {
           const partialArgs = JSON.parse(
-            fixPartialJson(r.function_call?.arguments)
+            fixPartialJson(r.data.function_call?.arguments)
           );
           onFunctionCallUpdate?.({
-            name: r.function_call.name,
-            arguments: partialArgs.argument,
+            name: r.data.function_call.name,
+            arguments: partialArgs,
           });
+        } else {
         }
       } catch (_) {
         // Do nothing here. The partial json is only there to show progress to the end user. It's okay if sometimes the parsing fails.

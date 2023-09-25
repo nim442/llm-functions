@@ -16,6 +16,7 @@ const jsonSchema: z.ZodType<Json> = z.lazy(() =>
 );
 
 export const json = (): z.ZodType<Json, z.ZodTypeDef, Json> => jsonSchema;
+
 export const stringToJSONSchema = z
   .string()
   .transform(async (str, ctx): Promise<z.infer<ReturnType<typeof json>>> => {
@@ -31,3 +32,11 @@ export const stringToJSONSchema = z
       return z.NEVER;
     }
   });
+
+export const stringToSchema = <T extends z.ZodTypeAny>(
+  finalSchema: T
+): z.ZodType<z.infer<T>> => {
+  return stringToJSONSchema.transform((json, ctx) => {
+    return finalSchema.parse(json);
+  });
+};
