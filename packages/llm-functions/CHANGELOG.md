@@ -1,5 +1,11 @@
 # llm-functions-ts
 
+## 0.0.27
+
+### Patch Changes
+
+- Use effect-ts for better execution handling
+
 ## 0.0.26
 
 ### Patch Changes

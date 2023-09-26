@@ -4,6 +4,7 @@ import * as prettierBabylon from 'prettier/plugins/babel';
 import * as esTree from 'prettier/plugins/estree';
 
 import { z } from 'zod';
+import { printNode, zodToTs } from 'zod-to-ts';
 
 const literalSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
@@ -34,9 +35,13 @@ export const stringToJSONSchema = z
   });
 
 export const stringToSchema = <T extends z.ZodTypeAny>(
-  finalSchema: T
+  finalSchema: T | undefined
 ): z.ZodType<z.infer<T>> => {
   return stringToJSONSchema.transform((json, ctx) => {
+    if (finalSchema === undefined) {
+      ctx.addIssue({ code: 'custom', message: 'No schema provided' });
+      return z.NEVER;
+    }
     return finalSchema.parse(json);
   });
 };

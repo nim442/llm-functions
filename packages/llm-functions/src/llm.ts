@@ -473,6 +473,7 @@ ${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
         functions
       );
       const exit = await Effect.runPromiseExit(fnOutput);
+      //@ts-ignore
       return pipe(
         exit,
         Exit.match({

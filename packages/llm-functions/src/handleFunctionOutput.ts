@@ -1,15 +1,13 @@
-import {
-  ChatCompletionRequestMessage,
-  ChatCompletionRequestMessageFunctionCall,
-} from 'openai-edge';
+import { ChatCompletionRequestMessageFunctionCall } from 'openai-edge';
 import { z } from 'zod';
 import { stringToSchema } from './jsonSchema';
 import { Effect as E, Option as O, pipe } from 'effect';
 import { FunctionDef } from './functions';
 import { ZodError } from 'zod-validation-error';
+import { printNode, zodToTs } from 'zod-to-ts';
 
 type LLMError =
-  | { type: 'error'; error: string }
+  | { type: 'llm-response-error'; error: string }
   | { type: 'zod-error'; error: ZodError }
   | { type: 'function-not-found'; error: string }
   | { type: 'timeout-error'; error: string }
@@ -41,10 +39,7 @@ export function getFunctionOutput<T = any>(
   const functionCallSchema = z.object({
     name: z.string().optional(),
     arguments: stringToSchema(
-      z.union(
-        //Tell zod that our array will have atleast two members
-        functions.map((s) => s.parameters) as unknown as [z.ZodAny, z.ZodAny]
-      )
+      functions.find((f) => f.name === functionCall.name)?.parameters
     ),
   });
 

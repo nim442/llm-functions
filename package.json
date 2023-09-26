@@ -12,7 +12,8 @@
     "typecheck": "turbo run typecheck",
     "preinstall": "npx only-allow pnpm",
     "dev:example": "turbo run dev --filter=example --filter=llm-functions ",
-    "build:packages": "turbo run build --filter=llm-functions --filter=@llm-functions/react"
+    "build:packages": "turbo run build --filter=llm-functions --filter=@llm-functions/react",
+    "dev:packages": "turbo run dev --filter=llm-functions --filter=@llm-functions/react"
   },
   "engines": {
     "node": ">=14.0.0"

@@ -1,5 +1,13 @@
 # @llm-functions/react
 
+## 0.0.27
+
+### Patch Changes
+
+- Use effect-ts for better execution handling
+- Updated dependencies
+  - llm-functions@0.0.27
+
 ## 0.0.26
 
 ### Patch Changes
