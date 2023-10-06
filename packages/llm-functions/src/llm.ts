@@ -46,7 +46,11 @@ import fixPartialJson from './fix-partial-json';
 import { VectorStore } from 'langchain/dist/vectorstores/base';
 import { Pinecone, PineconeConfiguration } from '@pinecone-database/pinecone';
 import { PineconeStore } from 'langchain/vectorstores/pinecone';
-import { VectorDatabase } from './documents/urlDocument';
+import {
+  getUrlDocument,
+  VectorDatabase,
+  VectorDatabaseMetadata,
+} from './documents/urlDocument';
 import { getFunctionOutput } from './handleFunctionOutput';
 
 type Parser = z.ZodSchema;
@@ -587,7 +591,6 @@ Try again with a valid response. You may be forgetting to add key called 'argume
         })
       );
     } catch (e: any) {
-      debugger;
       updateTrace(id, {
         response: {
           type: 'error',
@@ -782,6 +785,8 @@ ${documentContext.map((d) => d.result).join('\n')}
       content: `Use the DOCUMENT to answer user prompts.
 You are only allowed to use one of the provided functions.
 Use the print function to respond to the user when you have the final answer.
+The schema for the print function is:
+${JSON.stringify(zodToJsonSchema(zodSchema, { target: 'openApi3' }))}
 `,
     };
 
@@ -982,6 +987,11 @@ export type Registry = {
     idx: string,
     callback?: (ex: Execution<unknown>) => void
   ) => Promise<Execution<unknown>[]>;
+  queryDocument: (
+    query: string,
+    metadataFilters: Partial<VectorDatabaseMetadata>
+  ) => Promise<any>;
+
   evaluateFn: (
     idx: string,
     args: FunctionArgs,
@@ -1045,6 +1055,29 @@ export const initLLmFunction = ({
 
   return {
     registry: {
+      async queryDocument(query, metadataFilters) {
+        const a = await getUrlDocument(
+          {
+            input: metadataFilters.url || '',
+            type: 'url',
+            customFetcher: 'browserless',
+            chunkingStrategy: {
+              strategy: 'textSplitter',
+              options: {
+                chunkingQuery: query,
+                chunkSize: metadataFilters.chunkSize || 4000,
+                topK: 10,
+              },
+            },
+            selector: 'body',
+            removeAttrs: 'all',
+            removeSelectors: ['svg'],
+          },
+          query,
+          vectorDatabase
+        );
+        return Promise.resolve(a.map((s) => [s.source, s.score]));
+      },
       logsProvider: logsProvider,
       getFunctionsDefs: () => Promise.resolve(functionsDefs),
       evaluateFn: async (idx, args, respCallback) => {

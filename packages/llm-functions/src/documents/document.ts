@@ -73,9 +73,9 @@ export const splitDocument = async (
         })
       ).then((s) => s.join('\n'));
 
-      return [{ result: csv, source: 'pdf' }];
+      return [{ result: csv, source: 'pdf', score: 1 }];
     case 'text':
-      return [{ result: document.input, source: 'text' }];
+      return [{ result: document.input, source: 'text', score: 1 }];
     case 'url': {
       const doc = await getUrlDocument(document, query, vectorDatabase);
       return doc;

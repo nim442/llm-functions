@@ -4,6 +4,7 @@ import { Log } from '../llm';
 export type DocumentOutput = {
   result: string;
   source: string;
+  score: number;
   chunks?: string[];
   matchingChunk?: string;
 }[];

@@ -3,12 +3,10 @@ import { z } from 'zod';
 import { stringToSchema } from './jsonSchema';
 import { Effect as E, Option as O, pipe } from 'effect';
 import { FunctionDef } from './functions';
-import { ZodError } from 'zod-validation-error';
-import { printNode, zodToTs } from 'zod-to-ts';
 
 type LLMError =
   | { type: 'llm-response-error'; error: string }
-  | { type: 'zod-error'; error: ZodError }
+  | { type: 'zod-error'; error: z.ZodError }
   | { type: 'function-not-found'; error: string }
   | { type: 'timeout-error'; error: string }
   | { type: 'unknown-error'; error: string };
@@ -46,7 +44,11 @@ export function getFunctionOutput<T = any>(
   const functionEffect = E.tryPromise({
     try: () => functionCallSchema.parseAsync(functionCall),
     catch: (e): LLMError => {
-      if (e instanceof z.ZodError) {
+      const isZodError = (error: any): error is z.ZodError => {
+        return 'name' in error && error.name === 'ZodError';
+      };
+
+      if (isZodError(e)) {
         return {
           type: 'zod-error',
           error: e,

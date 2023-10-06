@@ -4,7 +4,6 @@ import * as prettierBabylon from 'prettier/plugins/babel';
 import * as esTree from 'prettier/plugins/estree';
 
 import { z } from 'zod';
-import { printNode, zodToTs } from 'zod-to-ts';
 
 const literalSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 

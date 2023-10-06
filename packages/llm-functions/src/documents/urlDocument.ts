@@ -23,7 +23,7 @@ const scrape = async function (
 ) {
   if (customFetcher === 'browserless') {
     return fetch(
-      `https://chrome.browserless.io/content?token=${process.env.BROWSERLESS_API_TOKEN}`,
+      `https://chrome.browserless.io/content?token=304bb18b-fa28-4f27-8576-10b9f38779ee`,
       {
         method: 'POST',
         headers: {
@@ -129,6 +129,13 @@ export type VectorDatabase =
       configuration: PineconeConfiguration & { index: string };
     }
   | { type: 'supabase'; configuration: { url: string; apiKey: string } };
+
+export type VectorDatabaseMetadata = {
+  url: string;
+  html: string;
+  chunkSize: number;
+  origin: string;
+};
 
 export const getUrlDocument = async (
   document: Extract<Document, { type: 'url' }>,
@@ -259,30 +266,50 @@ export const getUrlDocument = async (
     }
     const similaritySearch =
       vectorStore instanceof MemoryVectorStore
-        ? await vectorStore.similaritySearch(
+        ? await vectorStore.similaritySearchWithScore(
             chunkingStrategy.options.chunkingQuery || query || '',
-            chunkingStrategy.options.topK || 4,
+            5,
             (document) =>
               document.metadata.chunkSize === chunkSize &&
               document.metadata.origin === new URL(urls[0]).origin
           )
-        : await vectorStore.similaritySearch(
+        : await vectorStore.similaritySearchWithScore(
             chunkingStrategy.options.chunkingQuery || query || '',
-            chunkingStrategy.options.topK || 4,
+            5,
             { origin: new URL(urls[0]).origin, chunkSize: chunkSize }
           );
 
-    return similaritySearch.map((s) => {
-      return {
-        result: `Scraped ${s.metadata.url}\n${s.metadata.html}`,
-        source: s.metadata.url,
-      };
-    });
+    const groupedUrls = _.groupBy(similaritySearch, (s) => s[0].metadata.url);
+
+    const mostCommonUrl = Object.entries(groupedUrls).sort(
+      (a, b) => b[1].length - a[1].length
+    )[0][0];
+
+    const mostCommonChunk = similaritySearch.find(
+      ([s, score]) => s.metadata.url === mostCommonUrl
+    );
+
+    if (!mostCommonChunk) return [];
+
+    const $ = load(mostCommonChunk[0].metadata.html);
+    const textContent = $('body').text();
+
+    return [
+      {
+        result:
+          document.returnType === 'text'
+            ? `Scraped ${mostCommonChunk[0].metadata.url}\n${textContent}`
+            : `Scraped ${mostCommonChunk[0].metadata.url}\n${mostCommonChunk[0].metadata.html}`,
+        source: mostCommonChunk[0].metadata.url,
+        score: mostCommonChunk[1],
+      },
+    ];
   } else
     return results.map((s) => {
       return {
         result: `Scraped ${s.url}\n${s.body}`,
         source: s.url,
+        score: 1,
       };
     });
 };
